@@ -2,16 +2,19 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Envio } from '../types';
-import { Package, Truck, Info, Building2, MapPin } from 'lucide-react';
+import { Package, Truck, Building2, MapPin, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const AvailableShipments: React.FC = () => {
   const [envios, setEnvios] = useState<Envio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchEnvios = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
 
       const { data: usuario } = await supabase
         .from('usuarios')
@@ -38,6 +41,35 @@ const AvailableShipments: React.FC = () => {
 
     fetchEnvios();
   }, []);
+
+  const handleAccept = async (envioId: string) => {
+    if (!userId) return;
+    setProcessingId(envioId);
+
+    try {
+      const { error } = await supabase
+        .from('envios')
+        .update({
+          status: 'aceito',
+          aceito_por: userId,
+          aceito_em: new Date().toISOString()
+        })
+        .eq('id', envioId)
+        .eq('status', 'disponivel'); // Safety check
+
+      if (error) throw error;
+
+      // Sucesso: Remove da lista local
+      setEnvios(prev => prev.filter(e => e.id !== envioId));
+      
+      // Feedback simples via alert (pode ser melhorado para um toast se houver biblioteca)
+      console.log('Carona aceita com sucesso!');
+    } catch (err: any) {
+      alert('Erro ao aceitar carona: ' + err.message);
+    } finally {
+      setProcessingId(null);
+    }
+  };
 
   if (loading) return (
     <div className="flex justify-center py-12">
@@ -75,7 +107,7 @@ const AvailableShipments: React.FC = () => {
                   </div>
                 </div>
                 
-                <h4 className="font-bold text-gray-900 mb-4 line-clamp-2">{(envio.fornecedores as any)?.nome_fantasia}</h4>
+                <h4 className="font-bold text-gray-900 mb-2 line-clamp-2">{(envio.fornecedores as any)?.nome_fantasia}</h4>
                 <p className="text-xs text-gray-500 mb-6 italic">"{envio.descricao}"</p>
                 
                 <div className="space-y-4 pt-4 border-t border-gray-50">
@@ -98,6 +130,23 @@ const AvailableShipments: React.FC = () => {
                     </div>
                   </div>
                 </div>
+              </div>
+              
+              <div className="p-4 bg-gray-50 border-t border-gray-100">
+                <button
+                  onClick={() => handleAccept(envio.id)}
+                  disabled={processingId === envio.id}
+                  className="w-full bg-beirario hover:bg-beirario-dark text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
+                >
+                  {processingId === envio.id ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <CheckCircle2 size={18} />
+                      Aceitar Carona
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           ))}

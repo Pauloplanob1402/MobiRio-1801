@@ -1,5 +1,5 @@
 
-export type StatusEnvio = 'disponivel' | 'em_transito' | 'entregue' | 'cancelado';
+export type StatusEnvio = 'disponivel' | 'aceito' | 'em_transito' | 'entregue' | 'cancelado';
 
 export interface Unidade {
   id: string;
@@ -33,12 +33,14 @@ export interface Envio {
   descricao: string;
   status: StatusEnvio;
   created_at: string;
+  aceito_por?: string | null;
+  aceito_em?: string | null;
   // Joins
   unidades?: { nome: string };
   fornecedores?: { nome_fantasia: string; endereco: string };
+  aceitador?: { nome: string }; // Join virtual para exibir quem aceitou
 }
 
-// Added MovimentoCredito interface used in Wallet page to fix import error
 export interface MovimentoCredito {
   id: string;
   fornecedor_id: string;
