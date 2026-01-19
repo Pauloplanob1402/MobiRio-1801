@@ -8,16 +8,15 @@ import {
   Truck, 
   PackageCheck, 
   History, 
-  Wallet, 
   LogOut,
   Menu,
-  X
+  Building2
 } from 'lucide-react';
 
 const Layout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [userName, setUserName] = useState('');
-  const [empresaNome, setEmpresaNome] = useState('');
+  const [fornecedorName, setFornecedorName] = useState('');
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -27,13 +26,13 @@ const Layout: React.FC = () => {
       if (user) {
         const { data: usuario } = await supabase
           .from('usuarios')
-          .select('nome, empresas(nome)')
+          .select('nome, fornecedores(nome_fantasia)')
           .eq('id', user.id)
           .single();
         
         if (usuario) {
           setUserName(usuario.nome);
-          setEmpresaNome((usuario.empresas as any)?.nome || '');
+          setFornecedorName((usuario.fornecedores as any)?.nome_fantasia || 'Fornecedor');
         }
       }
     };
@@ -48,27 +47,18 @@ const Layout: React.FC = () => {
   const menuItems = [
     { path: '/', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/criar', label: 'Novo Envio', icon: PackagePlus },
-    { path: '/disponiveis', label: 'Caronas Disponíveis', icon: Truck },
     { path: '/meus-envios', label: 'Minhas Atividades', icon: PackageCheck },
+    { path: '/disponiveis', label: 'Caronas Disponíveis', icon: Truck },
     { path: '/historico', label: 'Histórico', icon: History },
-    { path: '/carteira', label: 'Minha Carteira', icon: Wallet },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      {/* Sidebar Mobile Overlay */}
+    <div className="min-h-screen bg-gray-50 flex font-sans">
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-20 lg:hidden"
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
-      <aside className={`
-        fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-100 z-30 transition-transform duration-300 lg:static lg:translate-x-0
-        ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-      `}>
+      <aside className={`fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-100 z-30 transition-transform duration-300 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-full flex flex-col p-6">
           <div className="flex items-center gap-3 mb-10">
             <div className="w-10 h-10 bg-beirario flex items-center justify-center rounded-lg shadow-lg">
@@ -85,12 +75,7 @@ const Layout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`
-                    flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium
-                    ${isActive 
-                      ? 'bg-beirario text-white shadow-md' 
-                      : 'text-gray-500 hover:bg-beirario-light hover:text-beirario'}
-                  `}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${isActive ? 'bg-beirario text-white shadow-md' : 'text-gray-500 hover:bg-beirario-light hover:text-beirario'}`}
                   onClick={() => setIsSidebarOpen(false)}
                 >
                   <Icon size={20} />
@@ -102,14 +87,11 @@ const Layout: React.FC = () => {
 
           <div className="mt-auto pt-6 border-t border-gray-100">
             <div className="mb-4 px-4">
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Conta</p>
-              <p className="text-sm font-medium text-gray-900 mt-1 truncate">{userName}</p>
-              <p className="text-xs text-beirario font-medium truncate">{empresaNome}</p>
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Perfil</p>
+              <p className="text-sm font-bold text-gray-900 mt-1 truncate">{userName}</p>
+              <p className="text-[10px] text-beirario font-bold uppercase truncate">{fornecedorName}</p>
             </div>
-            <button 
-              onClick={handleSignOut}
-              className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-500 hover:bg-gray-50 hover:text-red-600 rounded-xl transition-all"
-            >
+            <button onClick={handleSignOut} className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-500 hover:bg-gray-50 hover:text-red-600 rounded-xl transition-all">
               <LogOut size={20} />
               Sair
             </button>
@@ -117,26 +99,16 @@ const Layout: React.FC = () => {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
         <header className="h-16 bg-white border-b border-gray-100 px-6 flex items-center justify-between lg:justify-end">
-          <button 
-            className="lg:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg"
-            onClick={() => setIsSidebarOpen(true)}
-          >
+          <button className="lg:hidden p-2 text-gray-500 hover:bg-gray-100 rounded-lg" onClick={() => setIsSidebarOpen(true)}>
             <Menu size={24} />
           </button>
-          
           <div className="flex items-center gap-4">
-            <span className="text-sm text-gray-500 hidden sm:block">Logística Beira Rio</span>
-            <div className="w-8 h-8 rounded-full bg-beirario-light text-beirario flex items-center justify-center font-bold text-sm">
-              {userName.charAt(0)}
-            </div>
+            <span className="text-xs font-semibold text-gray-400 bg-gray-50 px-3 py-1 rounded-full border border-gray-100 uppercase tracking-wider">Unidades Beira Rio</span>
           </div>
         </header>
 
-        {/* Page Content */}
         <div className="flex-1 overflow-y-auto p-6 lg:p-10">
           <Outlet />
         </div>

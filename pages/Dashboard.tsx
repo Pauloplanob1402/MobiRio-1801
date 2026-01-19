@@ -8,8 +8,8 @@ import {
   Truck, 
   CheckCircle2, 
   Clock, 
-  ArrowRight, 
-  Coins 
+  ChevronRight,
+  MapPin
 } from 'lucide-react';
 
 const Dashboard: React.FC = () => {
@@ -17,7 +17,6 @@ const Dashboard: React.FC = () => {
     pendentes: 0,
     emTransito: 0,
     concluidos: 0,
-    saldo: 0
   });
   const [recentEnvios, setRecentEnvios] = useState<Envio[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,39 +28,29 @@ const Dashboard: React.FC = () => {
 
       const { data: usuario } = await supabase
         .from('usuarios')
-        .select('empresa_id, empresas(creditos_saldo)')
+        .select('fornecedor_id')
         .eq('id', user.id)
         .single();
+      
+      if (!usuario) return;
 
-      if (usuario) {
-        const empresaId = usuario.empresa_id;
-        const saldo = (usuario.empresas as any)?.creditos_saldo || 0;
+      const { data: envios } = await supabase
+        .from('envios')
+        .select(`
+          *,
+          unidades(nome)
+        `)
+        .eq('fornecedor_id', usuario.fornecedor_id);
 
-        // Stats
-        const { data: envios } = await supabase
-          .from('envios')
-          .select('status')
-          .or(`solicitante_id.eq.${empresaId},transportador_id.eq.${empresaId}`);
+      const counts = (envios || []).reduce((acc: any, curr: any) => {
+        if (curr.status === 'disponivel') acc.pendentes++;
+        if (curr.status === 'em_transito') acc.emTransito++;
+        if (curr.status === 'entregue') acc.concluidos++;
+        return acc;
+      }, { pendentes: 0, emTransito: 0, concluidos: 0 });
 
-        const counts = (envios || []).reduce((acc: any, curr: any) => {
-          if (curr.status === 'PENDENTE') acc.pendentes++;
-          if (curr.status === 'EM_TRANSITO') acc.emTransito++;
-          if (curr.status === 'ENTREGUE') acc.concluidos++;
-          return acc;
-        }, { pendentes: 0, emTransito: 0, concluidos: 0 });
-
-        setStats({ ...counts, saldo });
-
-        // Recent
-        const { data: recent } = await supabase
-          .from('envios')
-          .select('*')
-          .or(`solicitante_id.eq.${empresaId},transportador_id.eq.${empresaId}`)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        setRecentEnvios(recent || []);
-      }
+      setStats(counts);
+      setRecentEnvios((envios || []).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
       setLoading(false);
     };
 
@@ -72,10 +61,10 @@ const Dashboard: React.FC = () => {
     <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-500 mb-1">{title}</p>
-          <h3 className="text-3xl font-bold text-gray-900">{value}</h3>
+          <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">{title}</p>
+          <h3 className="text-3xl font-black text-gray-900">{value}</h3>
         </div>
-        <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center text-white`}>
+        <div className={`w-12 h-12 rounded-xl ${color} flex items-center justify-center text-white shadow-lg`}>
           <Icon size={24} />
         </div>
       </div>
@@ -89,59 +78,54 @@ const Dashboard: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500 font-sans">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Visão Geral</h2>
-          <p className="text-gray-500 mt-1">Bem-vindo ao centro de controle Mobirio.</p>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Painel do Fornecedor</h2>
+          <p className="text-gray-500 mt-1">Bem-vindo à rede de logística Beira Rio.</p>
         </div>
         <Link 
           to="/criar" 
           className="bg-beirario hover:bg-beirario-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-beirario/10 transition-all flex items-center justify-center gap-2"
         >
           <Package size={20} />
-          Solicitar Novo Envio
+          Solicitar Envio
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <StatCard title="Pendentes" value={stats.pendentes} icon={Clock} color="bg-orange-500" />
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+        <StatCard title="Aguardando" value={stats.pendentes} icon={Clock} color="bg-orange-500" />
         <StatCard title="Em Trânsito" value={stats.emTransito} icon={Truck} color="bg-blue-500" />
         <StatCard title="Entregues" value={stats.concluidos} icon={CheckCircle2} color="bg-green-500" />
-        <StatCard title="Saldo Créditos" value={stats.saldo} icon={Coins} color="bg-beirario" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-        {/* Recent Shipments */}
         <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between">
-            <h3 className="font-bold text-gray-900">Atividades Recentes</h3>
-            <Link to="/meus-envios" className="text-sm text-beirario font-bold hover:underline">Ver tudo</Link>
+            <h3 className="font-bold text-gray-900">Histórico Recente</h3>
+            <Link to="/meus-envios" className="text-sm text-beirario font-bold hover:underline flex items-center gap-1">
+              Ver tudo <ChevronRight size={14} />
+            </Link>
           </div>
           <div className="divide-y divide-gray-50">
             {recentEnvios.length === 0 ? (
-              <div className="p-12 text-center text-gray-400">Nenhuma atividade recente encontrada.</div>
+              <div className="p-12 text-center text-gray-400">Nenhum envio registrado ainda.</div>
             ) : (
               recentEnvios.map((envio) => (
                 <div key={envio.id} className="px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
-                      <Package size={20} />
+                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-400 border border-gray-100">
+                      <Package size={18} />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900 truncate max-w-[200px]">{envio.descricao}</p>
-                      <p className="text-xs text-gray-500 flex items-center gap-1">
-                        {envio.origem} <ArrowRight size={10} /> {envio.destino}
+                      <p className="font-semibold text-gray-900 truncate max-w-[200px] text-sm">{envio.descricao}</p>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1">
+                        <MapPin size={10} /> {(envio.unidades as any)?.nome}
                       </p>
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <span className={`
-                      text-[10px] font-bold px-2 py-1 rounded-full uppercase
-                      ${envio.status === 'PENDENTE' ? 'bg-orange-100 text-orange-600' : ''}
-                      ${envio.status === 'EM_TRANSITO' ? 'bg-blue-100 text-blue-600' : ''}
-                      ${envio.status === 'ENTREGUE' ? 'bg-green-100 text-green-600' : ''}
-                    `}>
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${envio.status === 'disponivel' ? 'bg-orange-100 text-orange-600' : envio.status === 'em_transito' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
                       {envio.status}
                     </span>
                     <span className="text-[10px] text-gray-400 mt-1">
@@ -154,25 +138,30 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Info Card */}
-        <div className="bg-beirario rounded-2xl p-8 text-white flex flex-col justify-between shadow-xl shadow-beirario/20 relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10">
-            <Truck size={120} />
+        <div className="bg-white rounded-2xl border border-gray-100 p-8 flex flex-col justify-between shadow-sm relative overflow-hidden group">
+          <div className="absolute -top-10 -right-10 opacity-5 group-hover:rotate-12 transition-transform">
+            <Truck size={200} />
           </div>
-          <div className="relative z-10">
-            <h3 className="text-2xl font-bold mb-4">Dica de Rota</h3>
-            <p className="text-white/80 font-light leading-relaxed">
-              Sabia que 90% das nossas caronas ocorrem entre Fornecedores e a Unidade Beira Rio 20? 
-              Aproveite essas rotas para ganhar mais créditos rapidamente!
+          <div>
+            <h3 className="text-xl font-bold text-gray-900 mb-4">Logística Colaborativa</h3>
+            <p className="text-gray-500 text-sm font-light leading-relaxed mb-6">
+              A Mobirio facilita a movimentação de amostras e volumes entre sua empresa e as unidades Beira Rio. 
+              Aproveite a rede para reduzir custos e agilizar processos.
             </p>
-          </div>
-          <div className="relative z-10 mt-8">
-            <Link 
-              to="/disponiveis" 
-              className="bg-white text-beirario px-6 py-3 rounded-xl font-bold hover:bg-gray-100 transition-all inline-block"
-            >
-              Explorar Rotas
-            </Link>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-beirario-light flex items-center justify-center text-beirario">
+                  <Package size={16} />
+                </div>
+                <p className="text-xs font-semibold text-gray-700">Amostras e pequenos volumes</p>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-beirario-light flex items-center justify-center text-beirario">
+                  <Truck size={16} />
+                </div>
+                <p className="text-xs font-semibold text-gray-700">Rastreabilidade em tempo real</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

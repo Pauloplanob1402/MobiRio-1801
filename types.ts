@@ -1,42 +1,52 @@
 
-export type StatusEnvio = 'PENDENTE' | 'EM_TRANSITO' | 'ENTREGUE' | 'CANCELADO';
+export type StatusEnvio = 'disponivel' | 'em_transito' | 'entregue' | 'cancelado';
 
-export interface Empresa {
+export interface Unidade {
   id: string;
   nome: string;
+  created_at: string;
+}
+
+export interface Fornecedor {
+  id: string;
+  razao_social: string;
+  nome_fantasia: string;
   cnpj: string;
-  tipo: 'FORNECEDOR' | 'UNIDADE';
-  creditos_saldo: number;
+  endereco: string;
   created_at: string;
 }
 
 export interface Usuario {
-  id: string; // auth.uid()
-  email: string;
+  id: string; // auth.users.id
+  fornecedor_id: string;
   nome: string;
-  empresa_id: string;
+  telefone: string;
+  email: string;
   created_at: string;
+  fornecedores?: Fornecedor;
 }
 
 export interface Envio {
   id: string;
-  solicitante_id: string; // empresa_id
-  transportador_id: string | null; // empresa_id
-  origem: string;
-  destino: string;
+  fornecedor_id: string;
+  unidade_id: string;
   descricao: string;
-  volume_tipo: string;
   status: StatusEnvio;
   created_at: string;
-  data_coleta: string | null;
-  data_entrega: string | null;
+  // Joins
+  unidades?: { nome: string };
+  fornecedores?: { nome_fantasia: string; endereco: string };
 }
 
+// Added MovimentoCredito interface used in Wallet page to fix import error
 export interface MovimentoCredito {
   id: string;
-  empresa_id: string;
-  envio_id: string;
-  quantidade: number; // +1 ou -1
-  tipo: 'DEBITO' | 'CREDITO';
+  fornecedor_id: string;
+  envio_id: string | null;
+  quantidade: number;
+  tipo: 'CREDITO' | 'DEBITO';
   created_at: string;
+  envios?: {
+    descricao: string;
+  };
 }

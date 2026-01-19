@@ -2,48 +2,55 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Package, MapPin, FileText, Send, CheckCircle } from 'lucide-react';
+import { Unidade } from '../types';
+import { Package, MapPin, FileText, Send, CheckCircle, Building2 } from 'lucide-react';
 
 const CreateShipment: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [empresaId, setEmpresaId] = useState('');
+  const [unidades, setUnidades] = useState<Unidade[]>([]);
+  const [fornecedorId, setFornecedorId] = useState('');
   const [formData, setFormData] = useState({
     descricao: '',
-    origem: '',
-    destino: '',
-    volume_tipo: 'CAIXA_PEQUENA',
+    unidade_id: '',
   });
   const navigate = useNavigate();
 
   useEffect(() => {
-    const fetchUser = async () => {
+    const fetchInitialData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: usuario } = await supabase
           .from('usuarios')
-          .select('empresa_id')
+          .select('fornecedor_id')
           .eq('id', user.id)
           .single();
-        if (usuario) setEmpresaId(usuario.empresa_id);
+        if (usuario) setFornecedorId(usuario.fornecedor_id);
       }
+
+      const { data: units } = await supabase
+        .from('unidades')
+        .select('*')
+        .order('nome');
+      
+      if (units) setUnidades(units);
     };
-    fetchUser();
+    fetchInitialData();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.unidade_id) return alert('Selecione uma unidade Beira Rio de destino.');
+    
     setLoading(true);
 
     const { error } = await supabase
       .from('envios')
       .insert({
-        solicitante_id: empresaId,
+        fornecedor_id: fornecedorId,
         descricao: formData.descricao,
-        origem: formData.origem,
-        destino: formData.destino,
-        volume_tipo: formData.volume_tipo,
-        status: 'PENDENTE'
+        unidade_id: formData.unidade_id,
+        status: 'disponivel'
       });
 
     if (error) {
@@ -61,28 +68,51 @@ const CreateShipment: React.FC = () => {
         <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
           <CheckCircle size={40} />
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Envio Solicitado!</h2>
-        <p className="text-gray-500">Sua solicitação foi enviada para a rede de caronas.</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Solicitação Enviada!</h2>
+        <p className="text-gray-500">Seu volume já está disponível para carona.</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div className="max-w-2xl mx-auto font-sans">
       <div className="mb-8">
         <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Novo Envio</h2>
-        <p className="text-gray-500 mt-1">Preencha os detalhes do volume para solicitar uma carona.</p>
+        <p className="text-gray-500 mt-1">Solicite o transporte de volumes para uma Unidade Beira Rio.</p>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Descrição do Volume</label>
+          <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 mb-4">
+            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Origem (Sua Empresa)</p>
+            <p className="text-sm font-semibold text-gray-700">Sua localização atual</p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Unidade Beira Rio (Destino)</label>
+            <div className="relative">
+              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <select 
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all appearance-none text-sm"
+                required
+                value={formData.unidade_id}
+                onChange={(e) => setFormData({...formData, unidade_id: e.target.value})}
+              >
+                <option value="">Selecione o destino</option>
+                {unidades.map(u => (
+                  <option key={u.id} value={u.id}>{u.nome}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Descrição do Volume</label>
             <div className="relative">
               <FileText className="absolute left-3 top-3 text-gray-400" size={20} />
               <textarea 
-                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all min-h-[100px]"
-                placeholder="Ex: Amostras de couro, 3 pares de protótipos..."
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all min-h-[120px] text-sm"
+                placeholder="Descreva o que está sendo enviado (ex: 2 caixas de amostras de couro)..."
                 required
                 value={formData.descricao}
                 onChange={(e) => setFormData({...formData, descricao: e.target.value})}
@@ -90,74 +120,13 @@ const CreateShipment: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Origem</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input 
-                  type="text" 
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all"
-                  placeholder="Ex: Fornecedor ABC"
-                  required
-                  value={formData.origem}
-                  onChange={(e) => setFormData({...formData, origem: e.target.value})}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">Destino</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-                <input 
-                  type="text" 
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all"
-                  placeholder="Ex: Unidade Beira Rio 20"
-                  required
-                  value={formData.destino}
-                  onChange={(e) => setFormData({...formData, destino: e.target.value})}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">Tipo de Volume</label>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {['CAIXA_P', 'CAIXA_M', 'CAIXA_G', 'ENVELOPE'].map((tipo) => (
-                <button
-                  key={tipo}
-                  type="button"
-                  onClick={() => setFormData({...formData, volume_tipo: tipo})}
-                  className={`
-                    py-3 px-4 rounded-xl border font-medium text-xs transition-all
-                    ${formData.volume_tipo === tipo 
-                      ? 'bg-beirario border-beirario text-white' 
-                      : 'bg-white border-gray-200 text-gray-500 hover:border-beirario hover:text-beirario'}
-                  `}
-                >
-                  {tipo.replace('_', ' ')}
-                </button>
-              ))}
-            </div>
-          </div>
-
           <div className="pt-4 border-t border-gray-50 flex gap-4">
-            <button 
-              type="button"
-              onClick={() => navigate(-1)}
-              className="flex-1 px-6 py-4 border border-gray-200 rounded-xl font-bold text-gray-500 hover:bg-gray-50 transition-all"
-            >
+            <button type="button" onClick={() => navigate(-1)} className="flex-1 px-6 py-4 border border-gray-200 rounded-xl font-bold text-gray-500 hover:bg-gray-50 transition-all">
               Cancelar
             </button>
-            <button 
-              type="submit"
-              disabled={loading}
-              className="flex-[2] bg-beirario hover:bg-beirario-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-beirario/10 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2"
-            >
+            <button type="submit" disabled={loading} className="flex-[2] bg-beirario hover:bg-beirario-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-beirario/10 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2">
               <Send size={20} />
-              {loading ? 'Processando...' : 'Solicitar Carona'}
+              {loading ? 'Criando Envio...' : 'Publicar Solicitação'}
             </button>
           </div>
         </form>
