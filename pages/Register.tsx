@@ -26,7 +26,7 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      // 1. Auth Signup
+      // 1. Cadastro no Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({ 
         email: formData.email, 
         password: formData.senha 
@@ -78,7 +78,7 @@ const Register: React.FC = () => {
           </div>
           <h1 className="text-4xl font-extrabold mb-6">Mobirio</h1>
           <p className="text-lg text-white/80 leading-relaxed font-light">
-            Conectando fornecedores e fábricas do Grupo Beira Rio através da logística colaborativa.
+            "Conectando parceiros ao ecossistema do Grupo Beira Rio."
           </p>
         </div>
       </div>

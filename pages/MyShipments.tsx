@@ -21,8 +21,7 @@ const MyShipments: React.FC = () => {
       .single();
 
     if (usuario) {
-      // 1. Envios que EU solicitei (Meus Envios)
-      // Incluímos um join fictício com 'usuarios' via 'aceito_por' para ver quem aceitou
+      // 1. Envios que EU solicitei
       const { data: enviosProprios } = await supabase
         .from('envios')
         .select(`
@@ -63,25 +62,35 @@ const MyShipments: React.FC = () => {
     </div>
   );
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'disponivel': return 'Aguardando Coleta';
+      case 'aceito': return 'Carona Confirmada';
+      case 'em_transito': return 'Em Rota';
+      case 'entregue': return 'Entregue';
+      default: return status;
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-12 font-sans pb-10">
       
       {/* Seção 1: Caronas que vou levar */}
       <section>
         <div className="mb-6">
-          <h2 className="text-2xl font-black text-gray-900">Minhas Atividades (Caronas)</h2>
-          <p className="text-gray-500 mt-1">Volumes de terceiros que você se comprometeu a transportar.</p>
+          <h2 className="text-2xl font-black text-gray-900">Minhas Atividades (Caronas que Aceitei)</h2>
+          <p className="text-gray-500 mt-1">Volumes de terceiros que você está transportando.</p>
         </div>
 
         <div className="space-y-4">
           {caronasAceitas.length === 0 ? (
             <div className="bg-white p-10 rounded-3xl border border-dashed border-gray-200 text-center">
               <Truck className="mx-auto text-gray-300 mb-4" size={40} />
-              <p className="text-gray-500 text-sm">Você não aceitou nenhuma carona recentemente.</p>
+              <p className="text-gray-500 text-sm">Você ainda não aceitou nenhuma carona.</p>
             </div>
           ) : (
             caronasAceitas.map(envio => (
-              <div key={envio.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-l-beirario">
+              <div key={envio.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 border-l-4 border-l-beirario hover:shadow-md transition-all">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-beirario-light text-beirario flex items-center justify-center">
                     <Truck size={24} />
@@ -98,7 +107,9 @@ const MyShipments: React.FC = () => {
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</p>
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 uppercase">Aceito</span>
+                    <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 uppercase">
+                      {getStatusLabel(envio.status)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -110,8 +121,8 @@ const MyShipments: React.FC = () => {
       {/* Seção 2: Meus Envios Solicitados */}
       <section>
         <div className="mb-6">
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Meus Envios</h2>
-          <p className="text-gray-500 mt-1">Gestão de volumes da sua empresa aguardando ou em trânsito.</p>
+          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Meus Envios Solicitados</h2>
+          <p className="text-gray-500 mt-1">Gestão de volumes da sua empresa aguardando transporte ou em trânsito.</p>
         </div>
 
         <div className="space-y-4">
@@ -125,7 +136,7 @@ const MyShipments: React.FC = () => {
             solicitados.map(envio => (
               <div key={envio.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 hover:shadow-md transition-all">
                 <div className="flex items-center gap-4">
-                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${envio.status === 'disponivel' ? 'bg-orange-50 text-orange-500 border-orange-100' : 'bg-green-50 text-green-600 border-green-100'}`}>
+                  <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${envio.status === 'disponivel' ? 'bg-orange-50 text-orange-500 border-orange-100' : 'bg-blue-50 text-blue-500 border-blue-100'}`}>
                     {envio.status === 'disponivel' ? <Clock size={28} /> : <CheckCircle size={28} />}
                   </div>
                   <div>
@@ -143,15 +154,15 @@ const MyShipments: React.FC = () => {
                       <User size={16} className="text-blue-500" />
                       <div>
                         <p className="text-[9px] font-bold text-blue-400 uppercase leading-none">Aceito por</p>
-                        <p className="text-xs font-bold text-blue-700 leading-tight">{(envio as any).aceitador?.nome || 'Usuário Mobirio'}</p>
+                        <p className="text-xs font-bold text-blue-700 leading-tight">{(envio as any).aceitador?.nome || 'Parceiro Mobirio'}</p>
                       </div>
                     </div>
                   )}
 
                   <div className="text-right">
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</p>
-                    <p className={`text-xs font-black uppercase mt-0.5 ${envio.status === 'disponivel' ? 'text-orange-500' : 'text-green-600'}`}>
-                      {envio.status === 'disponivel' ? 'Aguardando Coleta' : envio.status === 'aceito' ? 'Carona Confirmada' : 'Em Rota'}
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status Atual</p>
+                    <p className={`text-xs font-black uppercase mt-0.5 ${envio.status === 'disponivel' ? 'text-orange-500' : 'text-blue-600'}`}>
+                      {getStatusLabel(envio.status)}
                     </p>
                   </div>
                 </div>

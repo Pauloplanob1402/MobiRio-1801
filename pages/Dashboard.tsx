@@ -44,7 +44,7 @@ const Dashboard: React.FC = () => {
 
       const counts = (envios || []).reduce((acc: any, curr: any) => {
         if (curr.status === 'disponivel') acc.pendentes++;
-        if (curr.status === 'em_transito') acc.emTransito++;
+        if (curr.status === 'aceito' || curr.status === 'em_transito') acc.emTransito++;
         if (curr.status === 'entregue') acc.concluidos++;
         return acc;
       }, { pendentes: 0, emTransito: 0, concluidos: 0 });
@@ -81,7 +81,7 @@ const Dashboard: React.FC = () => {
     <div className="space-y-8 animate-in fade-in duration-500 font-sans">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Painel do Fornecedor</h2>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Painel do Parceiro</h2>
           <p className="text-gray-500 mt-1">Bem-vindo à rede de logística Beira Rio.</p>
         </div>
         <Link 
@@ -95,8 +95,8 @@ const Dashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
         <StatCard title="Aguardando" value={stats.pendentes} icon={Clock} color="bg-orange-500" />
-        <StatCard title="Em Trânsito" value={stats.emTransito} icon={Truck} color="bg-blue-500" />
-        <StatCard title="Entregues" value={stats.concluidos} icon={CheckCircle2} color="bg-green-500" />
+        <StatCard title="Em Rota" value={stats.emTransito} icon={Truck} color="bg-blue-500" />
+        <StatCard title="Concluídos" value={stats.concluidos} icon={CheckCircle2} color="bg-green-500" />
       </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
@@ -125,8 +125,8 @@ const Dashboard: React.FC = () => {
                     </div>
                   </div>
                   <div className="flex flex-col items-end">
-                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${envio.status === 'disponivel' ? 'bg-orange-100 text-orange-600' : envio.status === 'em_transito' ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
-                      {envio.status}
+                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase ${envio.status === 'disponivel' ? 'bg-orange-100 text-orange-600' : (envio.status === 'aceito' || envio.status === 'em_transito') ? 'bg-blue-100 text-blue-600' : 'bg-green-100 text-green-600'}`}>
+                      {envio.status === 'disponivel' ? 'Aguardando' : envio.status === 'aceito' ? 'Aceito' : envio.status === 'em_transito' ? 'Em Rota' : 'Entregue'}
                     </span>
                     <span className="text-[10px] text-gray-400 mt-1">
                       {new Date(envio.created_at).toLocaleDateString('pt-BR')}

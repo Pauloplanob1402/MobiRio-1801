@@ -10,7 +10,8 @@ import {
   History, 
   LogOut,
   Menu,
-  Building2
+  Building2,
+  Wallet as WalletIcon
 } from 'lucide-react';
 
 const Layout: React.FC = () => {
@@ -32,7 +33,7 @@ const Layout: React.FC = () => {
         
         if (usuario) {
           setUserName(usuario.nome);
-          setFornecedorName((usuario.fornecedores as any)?.nome_fantasia || 'Fornecedor');
+          setFornecedorName((usuario.fornecedores as any)?.nome_fantasia || 'Parceiro');
         }
       }
     };
@@ -45,15 +46,16 @@ const Layout: React.FC = () => {
   };
 
   const menuItems = [
-    { path: '/', label: 'Dashboard', icon: LayoutDashboard },
+    { path: '/', label: 'Painel', icon: LayoutDashboard },
     { path: '/criar', label: 'Novo Envio', icon: PackagePlus },
     { path: '/meus-envios', label: 'Minhas Atividades', icon: PackageCheck },
     { path: '/disponiveis', label: 'Caronas Disponíveis', icon: Truck },
     { path: '/historico', label: 'Histórico', icon: History },
+    { path: '/carteira', label: 'Carteira', icon: WalletIcon },
   ];
 
   return (
-    <div className="min-h-screen bg-gray-50 flex font-sans">
+    <div className="min-h-screen bg-gray-50 flex font-sans text-gray-900">
       {isSidebarOpen && (
         <div className="fixed inset-0 bg-black/50 z-20 lg:hidden" onClick={() => setIsSidebarOpen(false)} />
       )}

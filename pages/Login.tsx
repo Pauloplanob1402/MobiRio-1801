@@ -28,20 +28,20 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row">
-      {/* Left Side: Illustration & Branding */}
+      {/* Lado Esquerdo: Branding */}
       <div className="hidden lg:flex lg:w-1/2 bg-beirario items-center justify-center p-12 text-white">
         <div className="max-w-md text-center">
           <div className="inline-block p-4 bg-white/10 rounded-3xl backdrop-blur-sm mb-8">
             <Truck size={64} strokeWidth={1.5} />
           </div>
           <h1 className="text-5xl font-extrabold mb-6">Mobirio</h1>
-          <p className="text-xl text-white/80 leading-relaxed font-light">
-            A plataforma colaborativa que conecta transportadores e empresas do Grupo Beira Rio para movimentar o amanhã.
+          <p className="text-xl text-white/80 leading-relaxed font-light italic">
+            "O movimento que constrói o amanhã."
           </p>
         </div>
       </div>
 
-      {/* Right Side: Form */}
+      {/* Lado Direito: Formulário */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex justify-center mb-8">
@@ -50,7 +50,7 @@ const Login: React.FC = () => {
             </div>
           </div>
           
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Bem-vindo de volta</h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Boas-vindas</h2>
           <p className="text-gray-500 mb-8">Acesse sua conta corporativa Mobirio</p>
 
           {error && (
@@ -102,7 +102,7 @@ const Login: React.FC = () => {
 
           <p className="mt-8 text-center text-gray-500 text-sm">
             Ainda não tem acesso?{' '}
-            <Link to="/register" className="text-beirario font-bold hover:underline">Solicite Cadastro</Link>
+            <Link to="/register" className="text-beirario font-bold hover:underline">Solicitar Cadastro</Link>
           </p>
         </div>
       </div>

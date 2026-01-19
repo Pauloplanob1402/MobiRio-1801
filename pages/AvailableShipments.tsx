@@ -9,6 +9,7 @@ const AvailableShipments: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState(false);
 
   useEffect(() => {
     const fetchEnvios = async () => {
@@ -55,15 +56,14 @@ const AvailableShipments: React.FC = () => {
           aceito_em: new Date().toISOString()
         })
         .eq('id', envioId)
-        .eq('status', 'disponivel'); // Safety check
+        .eq('status', 'disponivel');
 
       if (error) throw error;
 
-      // Sucesso: Remove da lista local
+      // Sucesso: Remove o card da lista e mostra feedback
       setEnvios(prev => prev.filter(e => e.id !== envioId));
-      
-      // Feedback simples via alert (pode ser melhorado para um toast se houver biblioteca)
-      console.log('Carona aceita com sucesso!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } catch (err: any) {
       alert('Erro ao aceitar carona: ' + err.message);
     } finally {
@@ -78,11 +78,19 @@ const AvailableShipments: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 font-sans">
+    <div className="space-y-8 font-sans relative">
+      {/* Toast Simples */}
+      {showToast && (
+        <div className="fixed top-20 right-6 z-50 bg-green-600 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300">
+          <CheckCircle2 size={20} />
+          <span className="font-bold">Carona aceita com sucesso!</span>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight">Caronas Disponíveis</h2>
-          <p className="text-gray-500 mt-1">Veja volumes de outros fornecedores aguardando transporte.</p>
+          <p className="text-gray-500 mt-1">Veja volumes de outros parceiros aguardando transporte.</p>
         </div>
       </div>
 
