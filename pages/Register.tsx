@@ -26,7 +26,6 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      // 1. Cadastro no Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({ 
         email: formData.email, 
         password: formData.senha 
@@ -35,7 +34,6 @@ const Register: React.FC = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Falha ao criar usuário de autenticação.");
 
-      // 2. Criar Fornecedor
       const { data: supplierData, error: supplierError } = await supabase
         .from('fornecedores')
         .insert({
@@ -49,7 +47,6 @@ const Register: React.FC = () => {
 
       if (supplierError) throw supplierError;
 
-      // 3. Criar Perfil do Usuário
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
         fornecedor_id: supplierData.id,
@@ -71,13 +68,14 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans">
+      {/* Lado Esquerdo: Branding consistente com a imagem */}
       <div className="hidden lg:flex lg:w-1/3 bg-beirario items-center justify-center p-12 text-white">
-        <div className="max-w-md text-center">
-          <div className="inline-block p-4 bg-white/10 rounded-3xl backdrop-blur-sm mb-8">
-            <Truck size={64} strokeWidth={1.5} />
+        <div className="max-w-md text-center flex flex-col items-center">
+          <div className="w-24 h-24 bg-white/10 rounded-[2rem] flex items-center justify-center mb-8 backdrop-blur-sm border border-white/5">
+            <Truck size={48} strokeWidth={1.5} className="text-white" />
           </div>
-          <h1 className="text-4xl font-extrabold mb-6">Mobirio</h1>
-          <p className="text-lg text-white/80 leading-relaxed font-light">
+          <h1 className="text-4xl font-black mb-6 tracking-tight">Mobirio</h1>
+          <p className="text-lg text-white/90 leading-relaxed font-light italic">
             "Conectando parceiros ao ecossistema do Grupo Beira Rio."
           </p>
         </div>
@@ -96,7 +94,6 @@ const Register: React.FC = () => {
           )}
 
           <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Dados da Empresa */}
             <div className="space-y-4 md:col-span-2">
               <h3 className="text-xs font-bold text-beirario uppercase tracking-widest border-b pb-2">Informações Fiscais</h3>
             </div>
@@ -137,7 +134,6 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            {/* Dados do Usuário */}
             <div className="space-y-4 md:col-span-2 mt-4">
               <h3 className="text-xs font-bold text-beirario uppercase tracking-widest border-b pb-2">Dados do Responsável</h3>
             </div>

@@ -28,14 +28,14 @@ const Login: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row">
-      {/* Lado Esquerdo: Branding */}
+      {/* Lado Esquerdo: Branding conforme a imagem de referência */}
       <div className="hidden lg:flex lg:w-1/2 bg-beirario items-center justify-center p-12 text-white">
-        <div className="max-w-md text-center">
-          <div className="inline-block p-4 bg-white/10 rounded-3xl backdrop-blur-sm mb-8">
-            <Truck size={64} strokeWidth={1.5} />
+        <div className="max-w-md text-center flex flex-col items-center">
+          <div className="w-32 h-32 bg-white/10 rounded-[2.5rem] flex items-center justify-center mb-10 backdrop-blur-sm border border-white/5">
+            <Truck size={64} strokeWidth={1.5} className="text-white" />
           </div>
-          <h1 className="text-5xl font-extrabold mb-6">Mobirio</h1>
-          <p className="text-xl text-white/80 leading-relaxed font-light italic">
+          <h1 className="text-6xl font-black mb-6 tracking-tight">Mobirio</h1>
+          <p className="text-xl text-white/90 leading-relaxed font-light italic">
             "O movimento que constrói o amanhã."
           </p>
         </div>
@@ -45,8 +45,8 @@ const Login: React.FC = () => {
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
         <div className="w-full max-w-sm">
           <div className="lg:hidden flex justify-center mb-8">
-            <div className="w-12 h-12 bg-beirario flex items-center justify-center rounded-xl shadow-lg">
-              <Truck className="text-white" size={24} />
+            <div className="w-16 h-16 bg-beirario flex items-center justify-center rounded-2xl shadow-lg">
+              <Truck className="text-white" size={32} />
             </div>
           </div>
           
