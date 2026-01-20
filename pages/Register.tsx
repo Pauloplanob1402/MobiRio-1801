@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -76,7 +75,7 @@ const Register: React.FC = () => {
           </div>
           <h1 className="text-4xl font-black mb-6 tracking-tight">Mobirio</h1>
           <p className="text-lg text-white/90 leading-relaxed font-light italic">
-            "Conectando parceiros ao ecossistema do Grupo Beira Rio."
+            "Organizando fluxos. Movendo juntos."
           </p>
         </div>
       </div>
