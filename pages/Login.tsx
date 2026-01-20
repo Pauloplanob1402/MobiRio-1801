@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -36,14 +35,14 @@ const Login: React.FC = () => {
           </div>
           <h1 className="text-6xl font-black mb-6 tracking-tight">Mobirio</h1>
           <p className="text-xl text-white/90 leading-relaxed font-light italic">
-            "O movimento que constrói o amanhã."
+            "Organizando fluxos. Movendo juntos."
           </p>
         </div>
       </div>
 
       {/* Lado Direito: Formulário */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12">
-        <div className="w-full max-w-sm">
+        <div className="w-full max-sm:max-w-full max-w-sm">
           <div className="lg:hidden flex justify-center mb-8">
             <div className="w-16 h-16 bg-beirario flex items-center justify-center rounded-2xl shadow-lg">
               <Truck className="text-white" size={32} />
