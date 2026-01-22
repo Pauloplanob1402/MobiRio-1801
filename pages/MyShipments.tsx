@@ -2,16 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Envio } from '../types';
-import { Package, Truck, CheckCircle, Clock, MapPin, Building2, User } from 'lucide-react';
+import { Package, Truck, CheckCircle, Clock, MapPin, Building2, User, AlertCircle } from 'lucide-react';
 
 const MyShipments: React.FC = () => {
   const [solicitados, setSolicitados] = useState<Envio[]>([]);
   const [caronasAceitas, setCaronasAceitas] = useState<Envio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const fetchData = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
+    setCurrentUserId(user.id);
 
     // Busca perfil do usuário
     const { data: usuario } = await supabase
@@ -56,6 +60,44 @@ const MyShipments: React.FC = () => {
     fetchData();
   }, []);
 
+  const handleConfirmDelivery = async (envioId: string) => {
+    if (!currentUserId) return;
+    
+    if (!window.confirm("Deseja confirmar a entrega deste volume? Esta ação gerará 1 MOVE para você e consumirá 1 MOVE do remetente.")) {
+      return;
+    }
+
+    setProcessingId(envioId);
+    setFeedback(null);
+
+    try {
+      const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
+        p_envio_id: envioId,
+        p_driver_user_id: currentUserId
+      });
+
+      if (error) throw error;
+
+      const result = data as { success: boolean, message: string };
+
+      if (result.success) {
+        setFeedback({ type: 'success', message: 'Entrega confirmada. MOVE transferido com sucesso!' });
+        // Atualiza as listas localmente
+        setCaronasAceitas(prev => prev.filter(e => e.id !== envioId));
+        // Recarregar dados para garantir consistência total
+        fetchData();
+      } else {
+        setFeedback({ type: 'error', message: result.message });
+      }
+    } catch (err: any) {
+      setFeedback({ type: 'error', message: err.message || 'Erro inesperado ao confirmar entrega.' });
+    } finally {
+      setProcessingId(null);
+      // Remove o feedback após 5 segundos
+      setTimeout(() => setFeedback(null), 5000);
+    }
+  };
+
   if (loading) return (
     <div className="flex justify-center py-12">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-beirario"></div>
@@ -75,6 +117,14 @@ const MyShipments: React.FC = () => {
   return (
     <div className="max-w-5xl mx-auto space-y-12 font-sans pb-10">
       
+      {/* Feedback de Ação */}
+      {feedback && (
+        <div className={`fixed top-20 right-6 z-50 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300 ${feedback.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+          {feedback.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
+          <span className="font-bold">{feedback.message}</span>
+        </div>
+      )}
+
       {/* Seção 1: Caronas que vou levar */}
       <section>
         <div className="mb-6">
@@ -110,6 +160,22 @@ const MyShipments: React.FC = () => {
                     <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 uppercase">
                       {getStatusLabel(envio.status)}
                     </span>
+                  </div>
+                  
+                  {/* Botão de Confirmação de Entrega */}
+                  <div className="pl-4 border-l border-gray-100">
+                    <button
+                      onClick={() => handleConfirmDelivery(envio.id)}
+                      disabled={processingId === envio.id}
+                      className="bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold py-2.5 px-4 rounded-xl flex items-center gap-2 shadow-md shadow-green-100 transition-all active:scale-95 disabled:opacity-50"
+                    >
+                      {processingId === envio.id ? (
+                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      ) : (
+                        <CheckCircle size={16} />
+                      )}
+                      Confirmar Entrega
+                    </button>
                   </div>
                 </div>
               </div>
