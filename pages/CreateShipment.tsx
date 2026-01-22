@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -112,7 +111,7 @@ const CreateShipment: React.FC = () => {
               <FileText className="absolute left-3 top-3 text-gray-400" size={20} />
               <textarea 
                 className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all min-h-[120px] text-sm"
-                placeholder="Descreva o que está sendo enviado (ex: 2 caixas de amostras de couro)..."
+                placeholder="Ex: 5 pares de palmilha de montagem ou termoconformada, 1 caixa de solados, amostras técnicas da Ambiplast, protótipos ou pequenos volumes."
                 required
                 value={formData.descricao}
                 onChange={(e) => setFormData({...formData, descricao: e.target.value})}
