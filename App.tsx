@@ -15,13 +15,69 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setLoading(false);
-    });
+  // Função para garantir que o usuário tenha um perfil de fornecedor e usuário vinculado
+  const ensureProfile = async (user: any) => {
+    if (!user) return;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    try {
+      // Verifica se já existe um registro na tabela usuarios para este ID de autenticação
+      const { data: profile, error: profileError } = await supabase
+        .from('usuarios')
+        .select('id')
+        .eq('id', user.id)
+        .maybeSingle();
+
+      // Se não houver perfil, cria a estrutura básica necessária
+      if (!profile) {
+        const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
+        
+        // 1. Cria o registro do Fornecedor
+        const { data: supplier, error: sErr } = await supabase
+          .from('fornecedores')
+          .insert({
+            razao_social: displayName.toUpperCase(),
+            nome_fantasia: displayName,
+            cnpj: '00.000.000/0000-00',
+            endereco: 'Endereço pendente de atualização'
+          })
+          .select()
+          .single();
+
+        if (supplier) {
+          // 2. Cria o registro do Usuário vinculado ao fornecedor
+          // Isso disparará o trigger do banco que concede os 12 MOVE iniciais
+          await supabase.from('usuarios').insert({
+            id: user.id,
+            fornecedor_id: supplier.id,
+            nome: displayName,
+            email: user.email,
+            telefone: '(00) 00000-0000'
+          });
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao provisionar perfil:", err);
+    }
+  };
+
+  useEffect(() => {
+    const initializeAuth = async () => {
+      const { data: { session: initialSession } } = await supabase.auth.getSession();
+      
+      if (initialSession) {
+        await ensureProfile(initialSession.user);
+      }
+      
+      setSession(initialSession);
+      setLoading(false);
+    };
+
+    initializeAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) {
+        await ensureProfile(session.user);
+      }
       setSession(session);
     });
 
