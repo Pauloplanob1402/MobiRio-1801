@@ -23,35 +23,43 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('fornecedor_id')
-        .eq('id', user.id)
-        .single();
-      
-      if (!usuario) return;
+        const { data: usuario } = await supabase
+          .from('usuarios')
+          .select('fornecedor_id')
+          .eq('id', user.id)
+          .single();
+        
+        // Se o usuário ainda não tiver perfil vinculado, mantém stats em 0 e encerra loading
+        if (!usuario) return;
 
-      const { data: envios } = await supabase
-        .from('envios')
-        .select(`
-          *,
-          unidades(nome)
-        `)
-        .eq('fornecedor_id', usuario.fornecedor_id);
+        const { data: envios } = await supabase
+          .from('envios')
+          .select(`
+            *,
+            unidades(nome)
+          `)
+          .eq('fornecedor_id', usuario.fornecedor_id);
 
-      const counts = (envios || []).reduce((acc: any, curr: any) => {
-        if (curr.status === 'disponivel') acc.pendentes++;
-        if (curr.status === 'aceito' || curr.status === 'em_transito') acc.emTransito++;
-        if (curr.status === 'entregue') acc.concluidos++;
-        return acc;
-      }, { pendentes: 0, emTransito: 0, concluidos: 0 });
+        const safeEnvios = envios || [];
+        const counts = safeEnvios.reduce((acc: any, curr: any) => {
+          if (curr.status === 'disponivel') acc.pendentes++;
+          if (curr.status === 'aceito' || curr.status === 'em_transito') acc.emTransito++;
+          if (curr.status === 'entregue') acc.concluidos++;
+          return acc;
+        }, { pendentes: 0, emTransito: 0, concluidos: 0 });
 
-      setStats(counts);
-      setRecentEnvios((envios || []).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
-      setLoading(false);
+        setStats(counts);
+        setRecentEnvios([...safeEnvios].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
+      } catch (error) {
+        console.error("Erro ao carregar dados do dashboard:", error);
+      } finally {
+        // Garante que o loading seja encerrado mesmo se o usuário for novo ou houver erro
+        setLoading(false);
+      }
     };
 
     fetchData();
