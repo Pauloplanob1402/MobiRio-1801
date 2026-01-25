@@ -17,15 +17,17 @@ import {
 
 const Layout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [userName, setUserName] = useState('');
-  const [fornecedorName, setFornecedorName] = useState('');
+  const [userName, setUserName] = useState('Usuário');
+  const [fornecedorName, setFornecedorName] = useState('Carregando...');
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        
         if (user) {
           // Fallback imediato baseado nos dados da conta de autenticação
           const defaultName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';
@@ -33,19 +35,23 @@ const Layout: React.FC = () => {
           setFornecedorName('Parceiro Mobirio');
 
           // Busca dados detalhados da tabela de perfis
-          const { data: usuario } = await supabase
+          const { data: usuario, error } = await supabase
             .from('usuarios')
             .select('nome, fornecedores(nome_fantasia)')
             .eq('id', user.id)
             .maybeSingle();
           
           if (usuario) {
-            setUserName(usuario.nome || defaultName);
-            setFornecedorName((usuario.fornecedores as any)?.nome_fantasia || 'Parceiro Mobirio');
+            if (usuario.nome) setUserName(usuario.nome);
+            if ((usuario.fornecedores as any)?.nome_fantasia) {
+              setFornecedorName((usuario.fornecedores as any).nome_fantasia);
+            }
           }
         }
       } catch (err) {
         console.error("Erro ao buscar dados do usuário no Layout:", err);
+        setUserName('Usuário');
+        setFornecedorName('Parceiro Mobirio');
       }
     };
     fetchUserData();

@@ -19,9 +19,11 @@ const CreateShipment: React.FC = () => {
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user;
+        
         if (user) {
-          const { data: usuario } = await supabase
+          const { data: usuario, error: userError } = await supabase
             .from('usuarios')
             .select('fornecedor_id')
             .eq('id', user.id)
@@ -29,11 +31,12 @@ const CreateShipment: React.FC = () => {
           if (usuario) setFornecedorId(usuario.fornecedor_id);
         }
 
-        const { data: units } = await supabase
+        const { data: units, error: unitsError } = await supabase
           .from('unidades')
           .select('*')
-          .order('nome');
+          .order('nome', { ascending: true });
         
+        if (unitsError) throw unitsError;
         if (units) setUnidades(units);
       } catch (err) {
         console.error("Erro ao carregar dados iniciais de envio:", err);
