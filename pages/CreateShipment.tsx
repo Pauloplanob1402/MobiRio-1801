@@ -17,32 +17,38 @@ const CreateShipment: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    let isMounted = true;
+
     const fetchInitialData = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
+        const { data: { user } } = await supabase.auth.getUser();
         
-        if (user) {
-          const { data: usuario, error: userError } = await supabase
+        if (user && isMounted) {
+          const { data: usuario } = await supabase
             .from('usuarios')
             .select('fornecedor_id')
             .eq('id', user.id)
             .maybeSingle();
-          if (usuario) setFornecedorId(usuario.fornecedor_id);
+          if (usuario && isMounted) setFornecedorId(usuario.fornecedor_id);
         }
 
+        // Buscar unidades sem filtros para garantir o carregamento completo das 13 unidades
         const { data: units, error: unitsError } = await supabase
           .from('unidades')
           .select('*')
           .order('nome', { ascending: true });
         
         if (unitsError) throw unitsError;
-        if (units) setUnidades(units);
+        if (units && isMounted) {
+          setUnidades(units);
+        }
       } catch (err) {
         console.error("Erro ao carregar dados iniciais de envio:", err);
       }
     };
+
     fetchInitialData();
+    return () => { isMounted = false; };
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -110,9 +116,13 @@ const CreateShipment: React.FC = () => {
                 onChange={(e) => setFormData({...formData, unidade_id: e.target.value})}
               >
                 <option value="">Selecione o destino</option>
-                {unidades.map(u => (
-                  <option key={u.id} value={u.id}>{u.nome}</option>
-                ))}
+                {unidades.length > 0 ? (
+                  unidades.map(u => (
+                    <option key={u.id} value={u.id}>{u.nome}</option>
+                  ))
+                ) : (
+                  <option disabled>Buscando unidades...</option>
+                )}
               </select>
             </div>
           </div>

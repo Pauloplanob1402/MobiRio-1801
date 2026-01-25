@@ -18,43 +18,46 @@ import {
 const Layout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [userName, setUserName] = useState('Usuário');
-  const [fornecedorName, setFornecedorName] = useState('Carregando...');
+  const [fornecedorName, setFornecedorName] = useState('Parceiro');
   const location = useLocation();
   const navigate = useNavigate();
 
   useEffect(() => {
+    let mounted = true;
+
     const fetchUserData = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
+        const { data: { user } } = await supabase.auth.getUser();
         
-        if (user) {
-          // Fallback imediato baseado nos dados da conta de autenticação
-          const defaultName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';
-          setUserName(defaultName);
-          setFornecedorName('Parceiro Mobirio');
+        if (user && mounted) {
+          // 1. Tentar pegar o nome dos metadados IMEDIATAMENTE
+          const metadataName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';
+          setUserName(metadataName);
 
-          // Busca dados detalhados da tabela de perfis
-          const { data: usuario, error } = await supabase
+          // 2. Buscar dados da tabela para detalhes do fornecedor
+          const { data: usuario } = await supabase
             .from('usuarios')
             .select('nome, fornecedores(nome_fantasia)')
             .eq('id', user.id)
             .maybeSingle();
           
-          if (usuario) {
+          if (usuario && mounted) {
             if (usuario.nome) setUserName(usuario.nome);
             if ((usuario.fornecedores as any)?.nome_fantasia) {
               setFornecedorName((usuario.fornecedores as any).nome_fantasia);
             }
+          } else if (mounted) {
+            // Caso o registro no DB ainda não exista (novo cadastro), tenta novamente em 2 segundos
+            setTimeout(fetchUserData, 2000);
           }
         }
       } catch (err) {
         console.error("Erro ao buscar dados do usuário no Layout:", err);
-        setUserName('Usuário');
-        setFornecedorName('Parceiro Mobirio');
       }
     };
+
     fetchUserData();
+    return () => { mounted = false; };
   }, []);
 
   const handleSignOut = async () => {

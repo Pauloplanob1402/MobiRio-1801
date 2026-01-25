@@ -26,14 +26,21 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
+      // Registrar no Auth com metadados para disponibilidade imediata
       const { data: authData, error: authError } = await supabase.auth.signUp({ 
         email: formData.email, 
-        password: formData.senha 
+        password: formData.senha,
+        options: {
+          data: {
+            full_name: formData.nome_pessoa
+          }
+        }
       });
 
       if (authError) throw authError;
       if (!authData.user) throw new Error("Falha ao criar usuário de autenticação.");
 
+      // Criar fornecedor
       const { data: supplierData, error: supplierError } = await supabase
         .from('fornecedores')
         .insert({
@@ -48,6 +55,7 @@ const Register: React.FC = () => {
       if (supplierError) throw supplierError;
       if (!supplierData) throw new Error("Não foi possível criar o perfil de fornecedor.");
 
+      // Criar usuário vinculado
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
         fornecedor_id: supplierData.id,
@@ -71,7 +79,6 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans">
-      {/* Lado Esquerdo: Branding consistente com a imagem */}
       <div className="hidden lg:flex lg:w-1/3 bg-beirario items-center justify-center p-12 text-white">
         <div className="max-w-md text-center flex flex-col items-center">
           <div className="w-24 h-24 bg-white/10 rounded-[2rem] flex items-center justify-center mb-8 backdrop-blur-sm border border-white/5">
