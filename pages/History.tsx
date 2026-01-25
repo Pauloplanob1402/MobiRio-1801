@@ -11,29 +11,34 @@ const History: React.FC = () => {
 
   useEffect(() => {
     const fetchHistory = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('fornecedor_id')
-        .eq('id', user.id)
-        .single();
+        const { data: usuario } = await supabase
+          .from('usuarios')
+          .select('fornecedor_id')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      if (usuario) {
-        const { data } = await supabase
-          .from('envios')
-          .select(`
-            *,
-            unidades(nome)
-          `)
-          .eq('fornecedor_id', usuario.fornecedor_id)
-          .eq('status', 'entregue')
-          .order('created_at', { ascending: false });
-        
-        setHistory(data || []);
+        if (usuario) {
+          const { data } = await supabase
+            .from('envios')
+            .select(`
+              *,
+              unidades(nome)
+            `)
+            .eq('fornecedor_id', usuario.fornecedor_id)
+            .eq('status', 'entregue')
+            .order('created_at', { ascending: false });
+          
+          setHistory(data || []);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar histórico:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchHistory();

@@ -13,31 +13,36 @@ const AvailableShipments: React.FC = () => {
 
   useEffect(() => {
     const fetchEnvios = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      setUserId(user.id);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        setUserId(user.id);
 
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('fornecedor_id')
-        .eq('id', user.id)
-        .single();
+        const { data: usuario } = await supabase
+          .from('usuarios')
+          .select('fornecedor_id')
+          .eq('id', user.id)
+          .maybeSingle();
 
-      if (usuario) {
-        const { data } = await supabase
-          .from('envios')
-          .select(`
-            *,
-            fornecedores:fornecedor_id(nome_fantasia, endereco),
-            unidades(nome)
-          `)
-          .eq('status', 'disponivel')
-          .neq('fornecedor_id', usuario.fornecedor_id)
-          .order('created_at', { ascending: false });
-        
-        setEnvios(data || []);
+        if (usuario) {
+          const { data } = await supabase
+            .from('envios')
+            .select(`
+              *,
+              fornecedores:fornecedor_id(nome_fantasia, endereco),
+              unidades(nome)
+            `)
+            .eq('status', 'disponivel')
+            .neq('fornecedor_id', usuario.fornecedor_id)
+            .order('created_at', { ascending: false });
+          
+          setEnvios(data || []);
+        }
+      } catch (err) {
+        console.error("Erro ao buscar caronas:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchEnvios();

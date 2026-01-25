@@ -11,7 +11,8 @@ import {
   LogOut,
   Menu,
   Building2,
-  Wallet as WalletIcon
+  Wallet as WalletIcon,
+  HelpCircle
 } from 'lucide-react';
 
 const Layout: React.FC = () => {
@@ -52,6 +53,7 @@ const Layout: React.FC = () => {
     { path: '/disponiveis', label: 'Caronas Disponíveis', icon: Truck },
     { path: '/historico', label: 'Histórico', icon: History },
     { path: '/carteira', label: 'Carteira', icon: WalletIcon },
+    { path: '/ajuda', label: 'Ajuda e Regras', icon: HelpCircle },
   ];
 
   return (

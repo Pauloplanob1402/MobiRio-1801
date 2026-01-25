@@ -13,47 +13,52 @@ const MyShipments: React.FC = () => {
   const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const fetchData = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    setCurrentUserId(user.id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      setCurrentUserId(user.id);
 
-    // Busca perfil do usuário
-    const { data: usuario } = await supabase
-      .from('usuarios')
-      .select('fornecedor_id')
-      .eq('id', user.id)
-      .single();
+      // Busca perfil do usuário
+      const { data: usuario } = await supabase
+        .from('usuarios')
+        .select('fornecedor_id')
+        .eq('id', user.id)
+        .maybeSingle();
 
-    if (usuario) {
-      // 1. Envios que EU solicitei
-      const { data: enviosProprios } = await supabase
-        .from('envios')
-        .select(`
-          *,
-          unidades(nome),
-          aceitador:usuarios!envios_aceito_por_fkey(nome)
-        `)
-        .eq('fornecedor_id', usuario.fornecedor_id)
-        .in('status', ['disponivel', 'aceito', 'em_transito'])
-        .order('created_at', { ascending: false });
+      if (usuario) {
+        // 1. Envios que EU solicitei
+        const { data: enviosProprios } = await supabase
+          .from('envios')
+          .select(`
+            *,
+            unidades(nome),
+            aceitador:usuarios!envios_aceito_por_fkey(nome)
+          `)
+          .eq('fornecedor_id', usuario.fornecedor_id)
+          .in('status', ['disponivel', 'aceito', 'em_transito'])
+          .order('created_at', { ascending: false });
 
-      if (enviosProprios) setSolicitados(enviosProprios);
+        if (enviosProprios) setSolicitados(enviosProprios);
 
-      // 2. Envios que EU aceitei levar (Minhas Atividades / Caronas)
-      const { data: caronas } = await supabase
-        .from('envios')
-        .select(`
-          *,
-          unidades(nome),
-          fornecedores:fornecedor_id(nome_fantasia)
-        `)
-        .eq('aceito_por', user.id)
-        .in('status', ['aceito', 'em_transito'])
-        .order('aceito_em', { ascending: false });
+        // 2. Envios que EU aceitei levar (Minhas Atividades / Caronas)
+        const { data: caronas } = await supabase
+          .from('envios')
+          .select(`
+            *,
+            unidades(nome),
+            fornecedores:fornecedor_id(nome_fantasia)
+          `)
+          .eq('aceito_por', user.id)
+          .in('status', ['aceito', 'em_transito'])
+          .order('aceito_em', { ascending: false });
 
-      if (caronas) setCaronasAceitas(caronas);
+        if (caronas) setCaronasAceitas(caronas);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar seus envios:", err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {

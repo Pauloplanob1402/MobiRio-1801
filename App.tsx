@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
@@ -9,6 +10,7 @@ import AvailableShipments from './pages/AvailableShipments';
 import MyShipments from './pages/MyShipments';
 import History from './pages/History';
 import Wallet from './pages/Wallet';
+import About from './pages/About';
 import Layout from './components/Layout';
 
 const App: React.FC = () => {
@@ -105,6 +107,7 @@ const App: React.FC = () => {
           <Route path="/meus-envios" element={<MyShipments />} />
           <Route path="/historico" element={<History />} />
           <Route path="/carteira" element={<Wallet />} />
+          <Route path="/ajuda" element={<About />} />
         </Route>
         
         <Route path="*" element={<Navigate to="/" />} />

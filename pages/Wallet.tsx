@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { MovimentoCredito } from '../types';
@@ -10,36 +11,38 @@ const Wallet: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('fornecedor_id')
-        .eq('id', user.id)
-        .single();
-      
-      if (!usuario) {
-        setLoading(false);
-        return;
-      }
-
-      const { data: movs } = await supabase
-        .from('movimentos_credito')
-        .select('*, envios:envio_id(descricao)')
-        .eq('fornecedor_id', usuario.fornecedor_id)
-        .order('created_at', { ascending: false });
-      
-      if (movs) {
-        const movements = movs as MovimentoCredito[];
-        setMovimentos(movements);
+        const { data: usuario } = await supabase
+          .from('usuarios')
+          .select('fornecedor_id')
+          .eq('id', user.id)
+          .maybeSingle();
         
-        const total = movements.reduce((acc, curr) => {
-          return curr.tipo === 'CREDITO' ? acc + curr.quantidade : acc - curr.quantidade;
-        }, 0);
-        setSaldo(total);
+        if (!usuario) return;
+
+        const { data: movs } = await supabase
+          .from('movimentos_credito')
+          .select('*, envios:envio_id(descricao)')
+          .eq('fornecedor_id', usuario.fornecedor_id)
+          .order('created_at', { ascending: false });
+        
+        if (movs) {
+          const movements = movs as MovimentoCredito[];
+          setMovimentos(movements);
+          
+          const total = movements.reduce((acc, curr) => {
+            return curr.tipo === 'CREDITO' ? acc + curr.quantidade : acc - curr.quantidade;
+          }, 0);
+          setSaldo(total);
+        }
+      } catch (err) {
+        console.error("Erro ao carregar carteira:", err);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
 
     fetchData();
