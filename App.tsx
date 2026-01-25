@@ -23,7 +23,7 @@ const App: React.FC = () => {
 
     try {
       // Verifica se já existe um registro na tabela usuarios para este ID de autenticação
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from('usuarios')
         .select('id')
         .eq('id', user.id)
@@ -34,7 +34,7 @@ const App: React.FC = () => {
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
         
         // 1. Cria o registro do Fornecedor
-        const { data: supplier, error: sErr } = await supabase
+        const { data: supplier } = await supabase
           .from('fornecedores')
           .insert({
             razao_social: displayName.toUpperCase(),
@@ -57,40 +57,54 @@ const App: React.FC = () => {
           });
         }
       }
-    } catch (err) {
-      console.error("Erro ao provisionar perfil:", err);
+    } catch (err: any) {
+      // Silencia AbortError para evitar ruído no console se for apenas cancelamento de navegação
+      if (err.name !== 'AbortError') {
+        console.error("Erro ao provisionar perfil:", err);
+      }
     }
   };
 
   useEffect(() => {
+    let mounted = true;
+
     const initializeAuth = async () => {
       try {
+        // Tenta obter a sessão atual. Se falhar ou for abortado, cai no catch.
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
         if (error) throw error;
 
-        if (initialSession) {
-          await ensureProfile(initialSession.user);
+        if (initialSession && mounted) {
+          setSession(initialSession);
+          // Executamos o provisionamento de perfil de forma assíncrona sem 'await' 
+          // para não travar o carregamento inicial da UI em caso de lentidão no banco
+          ensureProfile(initialSession.user);
         }
-        
-        setSession(initialSession);
-      } catch (err) {
-        console.error("Erro na inicialização da autenticação:", err);
+      } catch (err: any) {
+        if (err.name !== 'AbortError') {
+          console.error("Erro na inicialização da autenticação:", err);
+        }
       } finally {
-        setLoading(false);
+        if (mounted) {
+          setLoading(false);
+        }
       }
     };
 
     initializeAuth();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      if (session) {
-        await ensureProfile(session.user);
+      if (mounted) {
+        setSession(session);
+        if (session) {
+          ensureProfile(session.user);
+        }
       }
-      setSession(session);
     });
 
     return () => {
+      mounted = false;
       if (subscription) subscription.unsubscribe();
     };
   }, []);
