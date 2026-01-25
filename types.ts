@@ -18,10 +18,12 @@ export interface Fornecedor {
 
 export interface Usuario {
   id: string; // auth.users.id
-  fornecedor_id: string;
+  fornecedor_id: string | null;
   nome: string;
   telefone: string;
   email: string;
+  cnpj: string;
+  endereco: string;
   creditos: number;
   created_at: string;
   fornecedores?: Fornecedor;
@@ -29,23 +31,24 @@ export interface Usuario {
 
 export interface Envio {
   id: string;
-  fornecedor_id: string;
+  fornecedor_id: string | null;
   unidade_id: string;
   descricao: string;
   status: StatusEnvio;
   created_at: string;
   aceito_por?: string | null;
   aceito_em?: string | null;
+  solicitante_id: string;
   // Joins
-  unidades?: { nome: string };
-  fornecedores?: { nome_fantasia: string; endereco: string };
-  aceitador?: { nome: string }; // Join virtual para exibir quem aceitou
+  unidade?: { nome: string };
+  fornecedor?: { nome_fantasia: string; endereco: string };
+  aceitador?: { nome: string };
 }
 
 export interface MovimentoCredito {
   id: string;
-  fornecedor_id: string;
-  usuario_id?: string; // Novo campo conforme solicitado
+  fornecedor_id: string | null;
+  usuario_id?: string;
   envio_id: string | null;
   quantidade: number;
   tipo: 'CREDITO' | 'DEBITO';

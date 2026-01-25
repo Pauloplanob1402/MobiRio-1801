@@ -2,16 +2,14 @@
 -- 1. Garante que a tabela 'usuarios' tenha a coluna 'creditos'
 ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS creditos INTEGER DEFAULT 0;
 
--- 2. Garante que a tabela 'envios' tenha a coluna 'solicitante_id'
+-- 2. Adiciona colunas fiscais e de localização na tabela 'usuarios'
+ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS cnpj TEXT;
+ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS endereco TEXT;
+
+-- 3. Garante que a tabela 'envios' tenha a coluna 'solicitante_id'
 ALTER TABLE IF EXISTS envios ADD COLUMN IF NOT EXISTS solicitante_id UUID REFERENCES auth.users(id);
 
--- 3. Função RPC Definitiva para Confirmar Entrega
--- LÓGICA: 
--- 1. Identifica quem solicitou a carona (solicitante_id)
--- 2. Verifica se o solicitante tem créditos (>= 1)
--- 3. Debita 1 MOVE do solicitante
--- 4. Credita 1 MOVE para o entregador (usuário logado)
--- 5. Atualiza status do envio
+-- 4. Função RPC Definitiva para Confirmar Entrega
 CREATE OR REPLACE FUNCTION rpc_confirmar_entrega(p_envio_id UUID, p_driver_user_id UUID)
 RETURNS JSON AS $$
 DECLARE
