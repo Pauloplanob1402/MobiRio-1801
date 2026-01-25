@@ -51,7 +51,7 @@ const App: React.FC = () => {
           console.warn("Falha ao criar fornecedor, tentando criar usuário sem vínculo...", sErr);
         }
 
-        // 3. Criar Usuário na tabela 'usuarios' com 12 créditos iniciais
+        // 3. Criar Usuário na tabela 'usuarios' com 12 créditos iniciais GARANTIDOS
         const { error: userError } = await supabase.from('usuarios').insert({
           id: user.id,
           fornecedor_id: supplierId,
@@ -67,6 +67,7 @@ const App: React.FC = () => {
           // 4. Registrar movimento de crédito inicial no histórico
           await supabase.from('movimentos_credito').insert({
             fornecedor_id: supplierId,
+            usuario_id: user.id,
             quantidade: 12,
             tipo: 'CREDITO',
             envio_id: null
@@ -87,11 +88,9 @@ const App: React.FC = () => {
         
         if (mounted) {
           setSession(initialSession);
-          // Destrava o loading imediatamente após a resposta do Auth
           setLoading(false); 
           
           if (initialSession) {
-            // Garante o perfil em background
             ensureProfile(initialSession.user);
           }
         }
@@ -112,7 +111,6 @@ const App: React.FC = () => {
       }
     });
 
-    // Safety timeout
     const safetyTimeout = setTimeout(() => {
       if (mounted && loading) setLoading(false);
     }, 5000);

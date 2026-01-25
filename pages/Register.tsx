@@ -54,7 +54,7 @@ const Register: React.FC = () => {
 
       if (supplierError) throw supplierError;
 
-      // 3. Criar registro na tabela 'usuarios' vinculado ao ID do Auth com 12 créditos
+      // 3. Criar registro na tabela 'usuarios' com 12 créditos iniciais
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
         fornecedor_id: supplierData.id,
@@ -69,10 +69,14 @@ const Register: React.FC = () => {
       // 4. Inserir movimento de crédito inicial para histórico
       await supabase.from('movimentos_credito').insert({
         fornecedor_id: supplierData.id,
+        usuario_id: authData.user.id,
         quantidade: 12,
         tipo: 'CREDITO',
         envio_id: null
       });
+
+      // Garantia de atualização (opcional mas recomendado se houver atrasos de inserção)
+      await supabase.from('usuarios').update({ creditos: 12 }).eq('id', authData.user.id);
 
       navigate('/');
     } catch (err: any) {

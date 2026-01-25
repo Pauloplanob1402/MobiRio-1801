@@ -3,14 +3,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Unidade } from '../types';
-import { Package, MapPin, FileText, Send, CheckCircle, Building2, AlertCircle } from 'lucide-react';
+import { Package, MapPin, FileText, Send, CheckCircle, Building2 } from 'lucide-react';
 
 const CreateShipment: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [fornecedorId, setFornecedorId] = useState('');
-  const [userCredits, setUserCredits] = useState<number>(0);
   const [formData, setFormData] = useState({
     descricao: '',
     unidade_id: '',
@@ -25,13 +24,12 @@ const CreateShipment: React.FC = () => {
       if (user) {
         const { data: usuario } = await supabase
           .from('usuarios')
-          .select('fornecedor_id, creditos')
+          .select('fornecedor_id')
           .eq('id', user.id)
           .maybeSingle();
         
         if (usuario) {
           setFornecedorId(usuario.fornecedor_id);
-          setUserCredits(usuario.creditos || 0);
         }
       }
 
@@ -49,8 +47,6 @@ const CreateShipment: React.FC = () => {
 
   useEffect(() => {
     fetchInitialData();
-    window.addEventListener('balanceUpdated', fetchInitialData);
-    return () => window.removeEventListener('balanceUpdated', fetchInitialData);
   }, [fetchInitialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -59,10 +55,8 @@ const CreateShipment: React.FC = () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return alert('Sessão expirada.');
 
-    if (userCredits < 1) {
-      alert('Saldo MOVE insuficiente para solicitar novo envio.');
-      return;
-    }
+    // REGRA ATUALIZADA: Não bloqueia mais por saldo insuficiente ao solicitar.
+    // Qualquer parceiro pode solicitar caronas independente do saldo.
     if (!formData.unidade_id) return alert('Selecione uma unidade Beira Rio de destino.');
     if (!fornecedorId) return alert('Perfil de fornecedor não encontrado. Recarregue a página.');
     
@@ -73,7 +67,7 @@ const CreateShipment: React.FC = () => {
         .from('envios')
         .insert({
           fornecedor_id: fornecedorId,
-          solicitante_id: user.id, // Importante para o fluxo de créditos
+          solicitante_id: user.id, // Fundamental para a RPC de confirmação futura
           descricao: formData.descricao,
           unidade_id: formData.unidade_id,
           status: 'disponivel'
@@ -104,26 +98,10 @@ const CreateShipment: React.FC = () => {
 
   return (
     <div className="max-w-2xl mx-auto font-sans">
-      <div className="mb-8 flex justify-between items-start">
-        <div>
-          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Novo Envio</h2>
-          <p className="text-gray-500 mt-1">Solicite o transporte de volumes para uma Unidade Beira Rio.</p>
-        </div>
-        <div className="bg-beirario-light text-beirario px-4 py-2 rounded-xl border border-beirario/10">
-          <p className="text-[10px] font-bold uppercase">Seu Saldo</p>
-          <p className="text-xl font-black">{userCredits} MOVE</p>
-        </div>
+      <div className="mb-8">
+        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Novo Envio</h2>
+        <p className="text-gray-500 mt-1">Solicite o transporte de volumes para uma Unidade Beira Rio.</p>
       </div>
-
-      {userCredits < 1 && (
-        <div className="mb-6 p-4 bg-orange-50 border border-orange-100 rounded-xl flex items-center gap-3 text-orange-700 text-sm">
-          <AlertCircle size={20} />
-          <div>
-            <p className="font-bold">Saldo MOVE insuficiente</p>
-            <p className="text-xs">Para solicitar um envio, você precisa oferecer caronas e acumular MOVE.</p>
-          </div>
-        </div>
-      )}
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -134,7 +112,6 @@ const CreateShipment: React.FC = () => {
               <select 
                 className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all appearance-none text-sm text-gray-900"
                 required
-                disabled={userCredits < 1}
                 value={formData.unidade_id}
                 onChange={(e) => setFormData({...formData, unidade_id: e.target.value})}
               >
@@ -154,7 +131,6 @@ const CreateShipment: React.FC = () => {
                 className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all min-h-[120px] text-sm text-gray-900"
                 placeholder="Ex: 5 pares de palmilha, amostras técnicas, etc."
                 required
-                disabled={userCredits < 1}
                 value={formData.descricao}
                 onChange={(e) => setFormData({...formData, descricao: e.target.value})}
               ></textarea>
@@ -167,7 +143,7 @@ const CreateShipment: React.FC = () => {
             </button>
             <button 
               type="submit" 
-              disabled={loading || userCredits < 1} 
+              disabled={loading} 
               className="flex-[2] bg-beirario hover:bg-beirario-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-beirario/10 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
             >
               <Send size={20} />
