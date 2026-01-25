@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Unidade } from '../types';
@@ -17,42 +17,41 @@ const CreateShipment: React.FC = () => {
   });
   const navigate = useNavigate();
 
-  useEffect(() => {
-    let isMounted = true;
-
-    const fetchInitialData = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        const user = session?.user;
+  const fetchInitialData = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      
+      if (user) {
+        const { data: usuario } = await supabase
+          .from('usuarios')
+          .select('fornecedor_id, creditos')
+          .eq('id', user.id)
+          .maybeSingle();
         
-        if (user && isMounted) {
-          const { data: usuario } = await supabase
-            .from('usuarios')
-            .select('fornecedor_id, creditos')
-            .eq('id', user.id)
-            .maybeSingle();
-          
-          if (usuario && isMounted) {
-            setFornecedorId(usuario.fornecedor_id);
-            setUserCredits(usuario.creditos || 0);
-          }
+        if (usuario) {
+          setFornecedorId(usuario.fornecedor_id);
+          setUserCredits(usuario.creditos || 0);
         }
-
-        const { data: units, error: unitsError } = await supabase
-          .from('unidades')
-          .select('*')
-          .order('nome', { ascending: true });
-        
-        if (unitsError) throw unitsError;
-        if (units && isMounted) setUnidades(units);
-      } catch (err) {
-        console.error("Erro ao carregar dados iniciais:", err);
       }
-    };
 
-    fetchInitialData();
-    return () => { isMounted = false; };
+      const { data: units, error: unitsError } = await supabase
+        .from('unidades')
+        .select('*')
+        .order('nome', { ascending: true });
+      
+      if (unitsError) throw unitsError;
+      if (units) setUnidades(units);
+    } catch (err) {
+      console.error("Erro ao carregar dados iniciais:", err);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchInitialData();
+    window.addEventListener('balanceUpdated', fetchInitialData);
+    return () => window.removeEventListener('balanceUpdated', fetchInitialData);
+  }, [fetchInitialData]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

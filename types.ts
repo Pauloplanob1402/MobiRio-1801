@@ -45,6 +45,7 @@ export interface Envio {
 export interface MovimentoCredito {
   id: string;
   fornecedor_id: string;
+  usuario_id?: string; // Novo campo conforme solicitado
   envio_id: string | null;
   quantidade: number;
   tipo: 'CREDITO' | 'DEBITO';

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { MovimentoCredito } from '../types';
 import { Coins, ArrowUpRight, ArrowDownLeft, Calendar, Info } from 'lucide-react';
@@ -9,52 +9,48 @@ const Wallet: React.FC = () => {
   const [movimentos, setMovimentos] = useState<MovimentoCredito[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+  const fetchData = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-        // Tentar obter o saldo direto do perfil do usuário (coluna creditos)
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('fornecedor_id, creditos')
-          .eq('id', user.id)
-          .maybeSingle();
-        
-        if (!usuario) return;
+      // Obter saldo direto da tabela 'usuarios'
+      const { data: usuario } = await supabase
+        .from('usuarios')
+        .select('fornecedor_id, creditos')
+        .eq('id', user.id)
+        .maybeSingle();
+      
+      if (!usuario) return;
 
-        if (typeof usuario.creditos === 'number') {
-          setSaldo(usuario.creditos);
-        }
-
-        const { data: movs } = await supabase
-          .from('movimentos_credito')
-          .select('*, envios:envio_id(descricao)')
-          .eq('fornecedor_id', usuario.fornecedor_id)
-          .order('created_at', { ascending: false });
-        
-        if (movs) {
-          const movements = movs as MovimentoCredito[];
-          setMovimentos(movements);
-          
-          // Fallback: se a coluna 'creditos' não existisse ou estivesse zerada indevidamente
-          if (saldo === 0 && movements.length > 0) {
-            const total = movements.reduce((acc, curr) => {
-              return curr.tipo === 'CREDITO' ? acc + curr.quantidade : acc - curr.quantidade;
-            }, 0);
-            setSaldo(total);
-          }
-        }
-      } catch (err) {
-        console.error("Erro ao carregar carteira:", err);
-      } finally {
-        setLoading(false);
+      if (typeof usuario.creditos === 'number') {
+        setSaldo(usuario.creditos);
       }
-    };
 
+      // Buscar histórico filtrando por usuario_id ou fornecedor_id
+      const { data: movs } = await supabase
+        .from('movimentos_credito')
+        .select('*, envios:envio_id(descricao)')
+        .eq('fornecedor_id', usuario.fornecedor_id)
+        .order('created_at', { ascending: false });
+      
+      if (movs) {
+        setMovimentos(movs as MovimentoCredito[]);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar carteira:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
     fetchData();
-  }, [saldo]);
+
+    // Ouvinte de atualização global de saldo
+    window.addEventListener('balanceUpdated', fetchData);
+    return () => window.removeEventListener('balanceUpdated', fetchData);
+  }, [fetchData]);
 
   if (loading) return (
     <div className="flex justify-center py-12">

@@ -36,7 +36,7 @@ const MyShipments: React.FC = () => {
           .in('status', ['disponivel', 'aceito', 'em_transito'])
           .order('created_at', { ascending: false });
 
-        if (enviosProprios) setSolicitados(enviosProprios);
+        if (enviosProprios) setSolicitados(enviosProprios || []);
 
         const { data: caronas } = await supabase
           .from('envios')
@@ -49,7 +49,7 @@ const MyShipments: React.FC = () => {
           .in('status', ['aceito', 'em_transito'])
           .order('aceito_em', { ascending: false });
 
-        if (caronas) setCaronasAceitas(caronas);
+        if (caronas) setCaronasAceitas(caronas || []);
       }
     } catch (err) {
       console.error("Erro ao buscar seus envios:", err);
@@ -63,7 +63,18 @@ const MyShipments: React.FC = () => {
   }, []);
 
   const handleConfirmDelivery = async (envioId: string) => {
-    if (!currentUserId) return;
+    // Garantir que temos o ID do usuário logado antes de prosseguir
+    let userId = currentUserId;
+    if (!userId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      userId = user?.id || null;
+      if (userId) setCurrentUserId(userId);
+    }
+
+    if (!userId) {
+      alert("Erro: Sessão não identificada. Por favor, faça login novamente.");
+      return;
+    }
     
     if (!window.confirm("Deseja confirmar a entrega? Você receberá 1 MOVE e o remetente terá 1 MOVE debitado.")) {
       return;
@@ -73,28 +84,42 @@ const MyShipments: React.FC = () => {
     setFeedback(null);
 
     try {
-      // Chama a RPC Universal para transferência de créditos
+      // Chama a RPC Transacional para transferência de créditos baseada na tabela 'usuarios'
       const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
         p_envio_id: envioId,
-        p_driver_user_id: currentUserId
+        p_driver_user_id: userId
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro ao chamar RPC:", error);
+        throw new Error(error.message || "Erro de conexão com o servidor.");
+      }
 
-      // Se a RPC retorna um objeto customizado
       const result = data as any;
 
       if (result && result.success === false) {
-        setFeedback({ type: 'error', message: result.message || 'Saldo MOVE insuficiente do remetente.' });
+        const msg = result.message || 'Saldo MOVE insuficiente do remetente.';
+        setFeedback({ type: 'error', message: msg });
+        alert(`Atenção: ${msg}`);
       } else {
-        setFeedback({ type: 'success', message: 'Entrega confirmada. MOVE creditado!' });
-        fetchData();
+        const msg = result.message || 'Entrega confirmada. MOVE creditado!';
+        setFeedback({ type: 'success', message: msg });
+        alert(`Sucesso! ${msg}`);
+        
+        // Notifica o sistema para atualizar saldos em tempo real sem F5 em toda a aplicação
+        window.dispatchEvent(new CustomEvent('balanceUpdated'));
+        
+        // Recarrega os dados locais da página
+        await fetchData();
       }
     } catch (err: any) {
-      console.error("Erro RPC:", err);
-      setFeedback({ type: 'error', message: err.message || 'Erro ao processar transação MOVE.' });
+      console.error("Erro Fatal na Transação:", err);
+      const errorMsg = err.message || 'Erro ao processar transação MOVE. Verifique se a RPC está instalada no banco.';
+      setFeedback({ type: 'error', message: errorMsg });
+      alert(`Erro: ${errorMsg}`);
     } finally {
       setProcessingId(null);
+      // Remove o feedback visual flutuante após 5 segundos
       setTimeout(() => setFeedback(null), 5000);
     }
   };
@@ -117,6 +142,7 @@ const MyShipments: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-12 font-sans pb-10">
+      {/* Toast flutuante para feedback rápido */}
       {feedback && (
         <div className={`fixed top-20 right-6 z-50 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300 ${feedback.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
           {feedback.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
