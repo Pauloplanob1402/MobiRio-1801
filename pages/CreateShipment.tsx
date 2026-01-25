@@ -3,13 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Unidade } from '../types';
-import { Package, MapPin, FileText, Send, CheckCircle, Building2 } from 'lucide-react';
+import { Package, MapPin, FileText, Send, CheckCircle, Building2, AlertCircle } from 'lucide-react';
 
 const CreateShipment: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
   const [fornecedorId, setFornecedorId] = useState('');
+  const [userCredits, setUserCredits] = useState<number>(0);
   const [formData, setFormData] = useState({
     descricao: '',
     unidade_id: '',
@@ -27,25 +28,25 @@ const CreateShipment: React.FC = () => {
         if (user && isMounted) {
           const { data: usuario } = await supabase
             .from('usuarios')
-            .select('fornecedor_id')
+            .select('fornecedor_id, creditos')
             .eq('id', user.id)
             .maybeSingle();
-          if (usuario && isMounted) setFornecedorId(usuario.fornecedor_id);
+          
+          if (usuario && isMounted) {
+            setFornecedorId(usuario.fornecedor_id);
+            setUserCredits(usuario.creditos || 0);
+          }
         }
 
-        // Busca todas as unidades da tabela 'unidades'
         const { data: units, error: unitsError } = await supabase
           .from('unidades')
           .select('*')
           .order('nome', { ascending: true });
         
         if (unitsError) throw unitsError;
-        
-        if (units && isMounted) {
-          setUnidades(units);
-        }
+        if (units && isMounted) setUnidades(units);
       } catch (err) {
-        console.error("Erro ao carregar unidades de destino:", err);
+        console.error("Erro ao carregar dados iniciais:", err);
       }
     };
 
@@ -55,6 +56,10 @@ const CreateShipment: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (userCredits < 1) {
+      alert('Saldo MOVE insuficiente para solicitar novo envio.');
+      return;
+    }
     if (!formData.unidade_id) return alert('Selecione uma unidade Beira Rio de destino.');
     if (!fornecedorId) return alert('Perfil de fornecedor não encontrado. Recarregue a página.');
     
@@ -95,36 +100,44 @@ const CreateShipment: React.FC = () => {
 
   return (
     <div className="max-w-2xl mx-auto font-sans">
-      <div className="mb-8">
-        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Novo Envio</h2>
-        <p className="text-gray-500 mt-1">Solicite o transporte de volumes para uma Unidade Beira Rio.</p>
+      <div className="mb-8 flex justify-between items-start">
+        <div>
+          <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Novo Envio</h2>
+          <p className="text-gray-500 mt-1">Solicite o transporte de volumes para uma Unidade Beira Rio.</p>
+        </div>
+        <div className="bg-beirario-light text-beirario px-4 py-2 rounded-xl border border-beirario/10">
+          <p className="text-[10px] font-bold uppercase">Seu Saldo</p>
+          <p className="text-xl font-black">{userCredits} MOVE</p>
+        </div>
       </div>
+
+      {userCredits < 1 && (
+        <div className="mb-6 p-4 bg-orange-50 border border-orange-100 rounded-xl flex items-center gap-3 text-orange-700 text-sm">
+          <AlertCircle size={20} />
+          <div>
+            <p className="font-bold">Saldo MOVE insuficiente</p>
+            <p className="text-xs">Para solicitar um envio, você precisa oferecer caronas e acumular MOVE.</p>
+          </div>
+        </div>
+      )}
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
         <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 mb-4">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">Origem (Sua Empresa)</p>
-            <p className="text-sm font-semibold text-gray-700">Sua localização atual</p>
-          </div>
-
           <div className="space-y-2">
             <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Unidade Beira Rio (Destino)</label>
             <div className="relative">
               <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
               <select 
-                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all appearance-none text-sm"
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all appearance-none text-sm text-gray-900"
                 required
+                disabled={userCredits < 1}
                 value={formData.unidade_id}
                 onChange={(e) => setFormData({...formData, unidade_id: e.target.value})}
               >
                 <option value="">Selecione o destino</option>
-                {unidades.length > 0 ? (
-                  unidades.map(u => (
-                    <option key={u.id} value={u.id}>{u.nome}</option>
-                  ))
-                ) : (
-                  <option disabled>Buscando unidades...</option>
-                )}
+                {unidades.map(u => (
+                  <option key={u.id} value={u.id}>{u.nome}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -134,9 +147,10 @@ const CreateShipment: React.FC = () => {
             <div className="relative">
               <FileText className="absolute left-3 top-3 text-gray-400" size={20} />
               <textarea 
-                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all min-h-[120px] text-sm"
-                placeholder="Ex: 5 pares de palmilha de montagem ou termoconformada, 1 caixa de solados, amostras técnicas da Ambiplast, protótipos ou pequenos volumes."
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all min-h-[120px] text-sm text-gray-900"
+                placeholder="Ex: 5 pares de palmilha, amostras técnicas, etc."
                 required
+                disabled={userCredits < 1}
                 value={formData.descricao}
                 onChange={(e) => setFormData({...formData, descricao: e.target.value})}
               ></textarea>
@@ -147,9 +161,13 @@ const CreateShipment: React.FC = () => {
             <button type="button" onClick={() => navigate(-1)} className="flex-1 px-6 py-4 border border-gray-200 rounded-xl font-bold text-gray-500 hover:bg-gray-50 transition-all">
               Cancelar
             </button>
-            <button type="submit" disabled={loading} className="flex-[2] bg-beirario hover:bg-beirario-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-beirario/10 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2">
+            <button 
+              type="submit" 
+              disabled={loading || userCredits < 1} 
+              className="flex-[2] bg-beirario hover:bg-beirario-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-beirario/10 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50"
+            >
               <Send size={20} />
-              {loading ? 'Criando Envio...' : 'Publicar Solicitação'}
+              {loading ? 'Processando...' : 'Publicar Solicitação'}
             </button>
           </div>
         </form>

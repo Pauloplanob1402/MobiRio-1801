@@ -52,27 +52,27 @@ const Register: React.FC = () => {
         .select()
         .single();
 
-      // 3. OBRIGATÓRIO: Criar registro na tabela 'usuarios' com 12 créditos
+      if (supplierError) throw supplierError;
+
+      // 3. Criar registro na tabela 'usuarios' vinculado ao ID do Auth com 12 créditos
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
-        fornecedor_id: supplierData?.id || null, // Permite login se fornecedor falhar mas DB aceitar null
+        fornecedor_id: supplierData.id,
         nome: formData.nome_pessoa,
         email: formData.email,
         telefone: formData.telefone,
-        creditos: 12 // Valor explícito garantido
+        creditos: 12
       });
 
       if (profileError) throw profileError;
 
-      // 4. Inserir movimento de crédito para histórico (opcional para o login, mas bom para a lógica)
-      if (supplierData?.id) {
-        await supabase.from('movimentos_credito').insert({
-          fornecedor_id: supplierData.id,
-          quantidade: 12,
-          tipo: 'CREDITO',
-          envio_id: null
-        });
-      }
+      // 4. Inserir movimento de crédito inicial para histórico
+      await supabase.from('movimentos_credito').insert({
+        fornecedor_id: supplierData.id,
+        quantidade: 12,
+        tipo: 'CREDITO',
+        envio_id: null
+      });
 
       navigate('/');
     } catch (err: any) {
@@ -87,13 +87,13 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans text-gray-900">
-      <div className="hidden lg:flex lg:w-1/3 bg-beirario items-center justify-center p-12 text-white">
+      <div className="hidden lg:flex lg:w-1/2 bg-beirario items-center justify-center p-12 text-white">
         <div className="max-w-md text-center flex flex-col items-center">
-          <div className="w-24 h-24 bg-white/10 rounded-[2rem] flex items-center justify-center mb-8 backdrop-blur-sm border border-white/5">
-            <Truck size={48} strokeWidth={1.5} className="text-white" />
+          <div className="w-32 h-32 bg-white/10 rounded-[2.5rem] flex items-center justify-center mb-10 backdrop-blur-sm border border-white/5">
+            <Truck size={64} strokeWidth={1.5} className="text-white" />
           </div>
-          <h1 className="text-4xl font-black mb-6 tracking-tight">Mobirio</h1>
-          <p className="text-lg text-white/90 leading-relaxed font-light italic">
+          <h1 className="text-6xl font-black mb-6 tracking-tight">Mobirio</h1>
+          <p className="text-xl text-white/90 leading-relaxed font-light italic">
             "Organizando fluxos. Movendo juntos."
           </p>
         </div>

@@ -21,45 +21,52 @@ const App: React.FC = () => {
     if (!user) return;
 
     try {
-      // Busca perfil na tabela usuarios
-      const { data: profile, error: fetchError } = await supabase
+      // 1. Verificar se o registro na tabela 'usuarios' já existe
+      const { data: profile } = await supabase
         .from('usuarios')
-        .select('id')
+        .select('id, creditos')
         .eq('id', user.id)
         .maybeSingle();
 
       if (!profile) {
-        console.log("Perfil não encontrado, iniciando provisionamento automático...");
+        console.log("Provisionando perfil para:", user.email);
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
         
-        // 1. Tentar criar Fornecedor (necessário se houver FK obrigatória)
-        const { data: supplier, error: supplierError } = await supabase
-          .from('fornecedores')
-          .insert({
-            razao_social: displayName.toUpperCase(),
-            nome_fantasia: displayName,
-            cnpj: '00.000.000/0000-00',
-            endereco: 'Pendente'
-          })
-          .select()
-          .single();
+        // 2. Tentar criar Fornecedor (opcional para o login, mas útil para o fluxo)
+        let supplierId = null;
+        try {
+          const { data: supplier } = await supabase
+            .from('fornecedores')
+            .insert({
+              razao_social: displayName.toUpperCase(),
+              nome_fantasia: displayName,
+              cnpj: '00.000.000/0000-00',
+              endereco: 'Pendente'
+            })
+            .select()
+            .single();
+          
+          if (supplier) supplierId = supplier.id;
+        } catch (sErr) {
+          console.warn("Falha ao criar fornecedor, tentando criar usuário sem vínculo...", sErr);
+        }
 
-        // 2. Criar Usuário na tabela usuarios com 12 créditos
-        // Se a criação do fornecedor falhou e houver FK, isso pode falhar, 
-        // mas tentamos seguir com o ID do fornecedor criado ou nulo se permitido
-        await supabase.from('usuarios').insert({
+        // 3. Criar Usuário na tabela 'usuarios' com 12 créditos iniciais
+        const { error: userError } = await supabase.from('usuarios').insert({
           id: user.id,
-          fornecedor_id: supplier?.id || null, 
+          fornecedor_id: supplierId,
           nome: displayName,
           email: user.email,
           telefone: '(00) 00000-0000',
           creditos: 12
         });
 
-        if (supplier?.id) {
-          // 3. Registrar movimento de crédito inicial apenas se houver fornecedor
+        if (userError) throw userError;
+
+        if (supplierId) {
+          // 4. Registrar movimento de crédito inicial no histórico
           await supabase.from('movimentos_credito').insert({
-            fornecedor_id: supplier.id,
+            fornecedor_id: supplierId,
             quantidade: 12,
             tipo: 'CREDITO',
             envio_id: null
@@ -67,7 +74,7 @@ const App: React.FC = () => {
         }
       }
     } catch (err: any) {
-      console.error("Erro silencioso no provisionamento de perfil:", err);
+      console.error("Erro no provisionamento de perfil:", err);
     }
   };
 
@@ -80,11 +87,11 @@ const App: React.FC = () => {
         
         if (mounted) {
           setSession(initialSession);
-          // DESTRAVAR LOADING: Executa imediatamente após obter a sessão
+          // Destrava o loading imediatamente após a resposta do Auth
           setLoading(false); 
           
           if (initialSession) {
-            // Processa o perfil em background para não travar a UI
+            // Garante o perfil em background
             ensureProfile(initialSession.user);
           }
         }
@@ -105,11 +112,9 @@ const App: React.FC = () => {
       }
     });
 
-    // Timeout de segurança absoluto: 5 segundos
+    // Safety timeout
     const safetyTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        setLoading(false);
-      }
+      if (mounted && loading) setLoading(false);
     }, 5000);
 
     return () => {
