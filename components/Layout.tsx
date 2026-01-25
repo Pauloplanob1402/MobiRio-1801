@@ -31,7 +31,10 @@ const Layout: React.FC = () => {
         const user = session?.user;
         
         if (user && mounted) {
-          // Prioridade: Busca dados da tabela 'usuarios' pelo ID
+          // Fallback imediato para metadados antes da consulta ao banco
+          const fallbackName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';
+          setUserName(fallbackName);
+
           const { data: usuario, error } = await supabase
             .from('usuarios')
             .select('nome, email, fornecedores(nome_fantasia)')
@@ -43,10 +46,6 @@ const Layout: React.FC = () => {
             if ((usuario.fornecedores as any)?.nome_fantasia) {
               setFornecedorName((usuario.fornecedores as any).nome_fantasia);
             }
-          } else if (mounted) {
-            // Fallback para metadados se a query falhar ou retornar nulo temporariamente
-            const fallbackName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';
-            setUserName(fallbackName);
           }
         }
       } catch (err) {

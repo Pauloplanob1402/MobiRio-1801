@@ -71,6 +71,14 @@ const App: React.FC = () => {
   useEffect(() => {
     let mounted = true;
 
+    // Timeout de segurança: Se as requisições demorarem mais de 10s, libera o site
+    const safetyTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("Safety timeout atingido. Forçando encerramento do loading.");
+        setLoading(false);
+      }
+    }, 10000);
+
     const initializeAuth = async () => {
       try {
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
@@ -103,6 +111,7 @@ const App: React.FC = () => {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimeout);
       if (subscription) subscription.unsubscribe();
     };
   }, []);
