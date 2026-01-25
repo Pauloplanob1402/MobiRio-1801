@@ -77,7 +77,7 @@ const MyShipments: React.FC = () => {
     setProcessingId(envioId);
 
     try {
-      // 2. Chamar a RPC que processa toda a lógica de crédito no banco
+      // 2. Chamar a RPC que processa toda a lógica de crédito no banco (Saldo é verificado no solicitante lá)
       const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
         p_envio_id: envioId,
         p_driver_user_id: user.id
@@ -88,12 +88,13 @@ const MyShipments: React.FC = () => {
       const result = data as any;
 
       if (result && result.success === false) {
-        alert("Erro: " + (result.message || "Não foi possível confirmar. Verifique o saldo do remetente."));
+        // Exibe o erro de saldo insuficiente do solicitante ou outro erro de negócio
+        alert("Atenção: " + (result.message || "Não foi possível confirmar a entrega."));
       } else {
-        // 3. Sucesso: Feedback e atualização
-        alert("Entrega confirmada! Você ganhou 1 MOVE.");
+        // 3. Sucesso: Feedback e atualização conforme solicitado
+        alert("Entrega confirmada! Você ganhou 1 MOVE");
         
-        // Notifica outros componentes sobre a mudança no saldo (Wallet, etc)
+        // Notifica outros componentes sobre a mudança no saldo (Wallet, Dashboard, etc)
         window.dispatchEvent(new CustomEvent('balanceUpdated'));
         
         // Recarrega a lista

@@ -55,6 +55,10 @@ const CreateShipment: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return alert('Sessão expirada.');
+
     if (userCredits < 1) {
       alert('Saldo MOVE insuficiente para solicitar novo envio.');
       return;
@@ -69,6 +73,7 @@ const CreateShipment: React.FC = () => {
         .from('envios')
         .insert({
           fornecedor_id: fornecedorId,
+          solicitante_id: user.id, // Importante para o fluxo de créditos
           descricao: formData.descricao,
           unidade_id: formData.unidade_id,
           status: 'disponivel'
