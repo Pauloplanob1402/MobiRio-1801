@@ -21,52 +21,42 @@ const App: React.FC = () => {
     if (!user) return;
 
     try {
-      // 1. Verificar se o registro na tabela 'usuarios' já existe
       const { data: profile } = await supabase
         .from('usuarios')
-        .select('id, creditos')
+        .select('id, creditos, fornecedor_id')
         .eq('id', user.id)
         .maybeSingle();
 
       if (!profile) {
-        console.log("Provisionando perfil para:", user.email);
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
         
-        // 2. Tentar criar Fornecedor (opcional para o login, mas útil para o fluxo)
-        let supplierId = null;
-        try {
-          const { data: supplier } = await supabase
-            .from('fornecedores')
-            .insert({
-              razao_social: displayName.toUpperCase(),
-              nome_fantasia: displayName,
-              cnpj: '00.000.000/0000-00',
-              endereco: 'Pendente'
-            })
-            .select()
-            .single();
-          
-          if (supplier) supplierId = supplier.id;
-        } catch (sErr) {
-          console.warn("Falha ao criar fornecedor, tentando criar usuário sem vínculo...", sErr);
-        }
-
-        // 3. Criar Usuário na tabela 'usuarios' com 12 créditos iniciais GARANTIDOS
-        const { error: userError } = await supabase.from('usuarios').insert({
+        // Criar registro na tabela 'usuarios' com 12 créditos iniciais
+        await supabase.from('usuarios').insert({
           id: user.id,
-          fornecedor_id: supplierId,
           nome: displayName,
           email: user.email,
           telefone: '(00) 00000-0000',
           creditos: 12
         });
 
-        if (userError) throw userError;
-
-        if (supplierId) {
-          // 4. Registrar movimento de crédito inicial no histórico
+        // Registrar no histórico de créditos
+        await supabase.from('movimentos_credito').insert({
+          usuario_id: user.id,
+          quantidade: 12,
+          tipo: 'CREDITO',
+          envio_id: null
+        });
+      } else if (profile.creditos === null || profile.creditos === 0) {
+        // Correção para usuários existentes que ficaram sem saldo inicial
+        const { data: movements } = await supabase
+          .from('movimentos_credito')
+          .select('id')
+          .eq('usuario_id', user.id)
+          .limit(1);
+        
+        if (!movements || movements.length === 0) {
+          await supabase.from('usuarios').update({ creditos: 12 }).eq('id', user.id);
           await supabase.from('movimentos_credito').insert({
-            fornecedor_id: supplierId,
             usuario_id: user.id,
             quantidade: 12,
             tipo: 'CREDITO',
@@ -89,10 +79,7 @@ const App: React.FC = () => {
         if (mounted) {
           setSession(initialSession);
           setLoading(false); 
-          
-          if (initialSession) {
-            ensureProfile(initialSession.user);
-          }
+          if (initialSession) ensureProfile(initialSession.user);
         }
       } catch (err: any) {
         console.error("Erro na inicialização da autenticação:", err);
@@ -105,19 +92,12 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (mounted) {
         setSession(session);
-        if (session) {
-          ensureProfile(session.user);
-        }
+        if (session) ensureProfile(session.user);
       }
     });
 
-    const safetyTimeout = setTimeout(() => {
-      if (mounted && loading) setLoading(false);
-    }, 5000);
-
     return () => {
       mounted = false;
-      clearTimeout(safetyTimeout);
       if (subscription) subscription.unsubscribe();
     };
   }, []);
