@@ -9,7 +9,6 @@ const CreateShipment: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [unidades, setUnidades] = useState<Unidade[]>([]);
-  const [fornecedorId, setFornecedorId] = useState('');
   const [formData, setFormData] = useState({
     descricao: '',
     unidade_id: '',
@@ -18,21 +17,6 @@ const CreateShipment: React.FC = () => {
 
   const fetchInitialData = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      
-      if (user) {
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('fornecedor_id')
-          .eq('id', user.id)
-          .maybeSingle();
-        
-        if (usuario) {
-          setFornecedorId(usuario.fornecedor_id);
-        }
-      }
-
       const { data: units, error: unitsError } = await supabase
         .from('unidades')
         .select('*')
@@ -41,7 +25,7 @@ const CreateShipment: React.FC = () => {
       if (unitsError) throw unitsError;
       if (units) setUnidades(units);
     } catch (err) {
-      console.error("Erro ao carregar dados iniciais:", err);
+      console.error("Erro ao carregar unidades:", err);
     }
   }, []);
 
@@ -53,21 +37,26 @@ const CreateShipment: React.FC = () => {
     e.preventDefault();
     
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert('Sessão expirada.');
+    if (!user) return alert('Sessão expirada. Por favor, faça login novamente.');
 
-    // REGRA ATUALIZADA: Não bloqueia mais por saldo insuficiente ao solicitar.
-    // Qualquer parceiro pode solicitar caronas independente do saldo.
     if (!formData.unidade_id) return alert('Selecione uma unidade Beira Rio de destino.');
-    if (!fornecedorId) return alert('Perfil de fornecedor não encontrado. Recarregue a página.');
     
     setLoading(true);
 
     try {
+      // REGRA: Pedir carona é grátis. Não verifica saldo nem fornecedor.
+      // O sistema tenta obter o fornecedor_id do usuário logado se existir, mas não bloqueia se for null.
+      const { data: perfil } = await supabase
+        .from('usuarios')
+        .select('fornecedor_id')
+        .eq('id', user.id)
+        .maybeSingle();
+
       const { error } = await supabase
         .from('envios')
         .insert({
-          fornecedor_id: fornecedorId,
-          solicitante_id: user.id, // Fundamental para a RPC de confirmação futura
+          solicitante_id: user.id,
+          fornecedor_id: perfil?.fornecedor_id || null, // Opcional no envio direto
           descricao: formData.descricao,
           unidade_id: formData.unidade_id,
           status: 'disponivel'
@@ -78,7 +67,7 @@ const CreateShipment: React.FC = () => {
       setSuccess(true);
       setTimeout(() => navigate('/meus-envios'), 2000);
     } catch (err: any) {
-      alert('Erro ao criar envio: ' + err.message);
+      alert('Erro ao criar solicitação: ' + err.message);
     } finally {
       setLoading(false);
     }
@@ -90,8 +79,8 @@ const CreateShipment: React.FC = () => {
         <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
           <CheckCircle size={40} />
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Solicitação Enviada!</h2>
-        <p className="text-gray-500">Seu volume já está disponível para carona.</p>
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">Solicitação Criada!</h2>
+        <p className="text-gray-500">Seu volume já está visível para potenciais caronas.</p>
       </div>
     );
   }
@@ -99,8 +88,8 @@ const CreateShipment: React.FC = () => {
   return (
     <div className="max-w-2xl mx-auto font-sans">
       <div className="mb-8">
-        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Novo Envio</h2>
-        <p className="text-gray-500 mt-1">Solicite o transporte de volumes para uma Unidade Beira Rio.</p>
+        <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Solicitar Carona</h2>
+        <p className="text-gray-500 mt-1">Publique um volume para ser transportado por um parceiro.</p>
       </div>
 
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
@@ -124,12 +113,12 @@ const CreateShipment: React.FC = () => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Descrição do Volume</label>
+            <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">O que está sendo enviado?</label>
             <div className="relative">
               <FileText className="absolute left-3 top-3 text-gray-400" size={20} />
               <textarea 
                 className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all min-h-[120px] text-sm text-gray-900"
-                placeholder="Ex: 5 pares de palmilha, amostras técnicas, etc."
+                placeholder="Ex: Amostras de couro, 2 caixas de fivelas, etc."
                 required
                 value={formData.descricao}
                 onChange={(e) => setFormData({...formData, descricao: e.target.value})}
@@ -139,7 +128,7 @@ const CreateShipment: React.FC = () => {
 
           <div className="pt-4 border-t border-gray-50 flex gap-4">
             <button type="button" onClick={() => navigate(-1)} className="flex-1 px-6 py-4 border border-gray-200 rounded-xl font-bold text-gray-500 hover:bg-gray-50 transition-all">
-              Cancelar
+              Voltar
             </button>
             <button 
               type="submit" 

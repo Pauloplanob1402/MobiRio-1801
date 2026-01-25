@@ -40,27 +40,31 @@ const Register: React.FC = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Erro ao criar usuário de autenticação.");
 
-      // 2. Criar Fornecedor
-      const { data: supplierData, error: supplierError } = await supabase
-        .from('fornecedores')
-        .insert({
-          razao_social: formData.razao_social.toUpperCase(),
-          nome_fantasia: formData.nome_fantasia,
-          cnpj: formData.cnpj,
-          endereco: formData.endereco
-        })
-        .select()
-        .single();
+      // 2. Criar Fornecedor (opcional, não bloqueia o registro)
+      let supplierId = null;
+      try {
+        const { data: supplierData } = await supabase
+          .from('fornecedores')
+          .insert({
+            razao_social: (formData.razao_social || formData.nome_pessoa).toUpperCase(),
+            nome_fantasia: formData.nome_fantasia || formData.nome_pessoa,
+            cnpj: formData.cnpj || '00.000.000/0000-00',
+            endereco: formData.endereco || 'Pendente'
+          })
+          .select()
+          .single();
+        if (supplierData) supplierId = supplierData.id;
+      } catch (e) {
+        console.warn("Criação de fornecedor falhou, continuando registro de usuário...");
+      }
 
-      if (supplierError) throw supplierError;
-
-      // 3. Criar registro na tabela 'usuarios' com 12 créditos iniciais
+      // 3. Criar registro na tabela 'usuarios' com 12 créditos iniciais (Obrigatório)
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
-        fornecedor_id: supplierData.id,
+        fornecedor_id: supplierId,
         nome: formData.nome_pessoa,
         email: formData.email,
-        telefone: formData.telefone,
+        telefone: formData.telefone || '(00) 00000-0000',
         creditos: 12
       });
 
@@ -68,15 +72,12 @@ const Register: React.FC = () => {
 
       // 4. Inserir movimento de crédito inicial para histórico
       await supabase.from('movimentos_credito').insert({
-        fornecedor_id: supplierData.id,
+        fornecedor_id: supplierId,
         usuario_id: authData.user.id,
         quantidade: 12,
         tipo: 'CREDITO',
         envio_id: null
       });
-
-      // Garantia de atualização (opcional mas recomendado se houver atrasos de inserção)
-      await supabase.from('usuarios').update({ creditos: 12 }).eq('id', authData.user.id);
 
       navigate('/');
     } catch (err: any) {
@@ -105,8 +106,8 @@ const Register: React.FC = () => {
 
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
         <div className="w-full max-w-2xl py-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Cadastre sua Empresa</h2>
-          <p className="text-gray-500 mb-8">Preencha os dados corporativos e do responsável.</p>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Cadastre-se</h2>
+          <p className="text-gray-500 mb-8">Participe da rede de logística colaborativa Beira Rio.</p>
 
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm">
@@ -117,49 +118,9 @@ const Register: React.FC = () => {
 
           <form onSubmit={handleRegister} className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-4 md:col-span-2">
-              <h3 className="text-xs font-bold text-beirario uppercase tracking-widest border-b pb-2">Informações Fiscais</h3>
+              <h3 className="text-xs font-bold text-beirario uppercase tracking-widest border-b pb-2">Seus Dados</h3>
             </div>
             
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-700">Razão Social</label>
-              <div className="relative">
-                <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input type="text" className={inputClass} placeholder="Empresa LTDA" required
-                  value={formData.razao_social} onChange={e => setFormData({...formData, razao_social: e.target.value})} />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-700">Nome Fantasia</label>
-              <div className="relative">
-                <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input type="text" className={inputClass} placeholder="Nome Comercial" required
-                  value={formData.nome_fantasia} onChange={e => setFormData({...formData, nome_fantasia: e.target.value})} />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-700">CNPJ</label>
-              <div className="relative">
-                <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input type="text" className={inputClass} placeholder="00.000.000/0000-00" required
-                  value={formData.cnpj} onChange={e => setFormData({...formData, cnpj: e.target.value})} />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-700">Endereço Completo</label>
-              <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input type="text" className={inputClass} placeholder="Rua, Número, Cidade" required
-                  value={formData.endereco} onChange={e => setFormData({...formData, endereco: e.target.value})} />
-              </div>
-            </div>
-
-            <div className="space-y-4 md:col-span-2 mt-4">
-              <h3 className="text-xs font-bold text-beirario uppercase tracking-widest border-b pb-2">Dados do Responsável</h3>
-            </div>
-
             <div className="space-y-2">
               <label className="text-xs font-bold text-gray-700">Seu Nome</label>
               <div className="relative">
@@ -170,16 +131,7 @@ const Register: React.FC = () => {
             </div>
 
             <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-700">Telefone</label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                <input type="text" className={inputClass} placeholder="(00) 00000-0000" required
-                  value={formData.telefone} onChange={e => setFormData({...formData, telefone: e.target.value})} />
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-bold text-gray-700">Email Profissional</label>
+              <label className="text-xs font-bold text-gray-700">Email Corporativo</label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                 <input type="email" className={inputClass} placeholder="seu@email.com.br" required
@@ -196,9 +148,40 @@ const Register: React.FC = () => {
               </div>
             </div>
 
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700">Telefone</label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input type="text" className={inputClass} placeholder="(00) 00000-0000"
+                  value={formData.telefone} onChange={e => setFormData({...formData, telefone: e.target.value})} />
+              </div>
+            </div>
+
+            <div className="space-y-4 md:col-span-2 mt-4">
+              <h3 className="text-xs font-bold text-beirario uppercase tracking-widest border-b pb-2">Dados da Empresa (Opcional)</h3>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700">Nome Fantasia</label>
+              <div className="relative">
+                <Building className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input type="text" className={inputClass} placeholder="Nome Comercial"
+                  value={formData.nome_fantasia} onChange={e => setFormData({...formData, nome_fantasia: e.target.value})} />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs font-bold text-gray-700">CNPJ</label>
+              <div className="relative">
+                <Fingerprint className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+                <input type="text" className={inputClass} placeholder="00.000.000/0000-00"
+                  value={formData.cnpj} onChange={e => setFormData({...formData, cnpj: e.target.value})} />
+              </div>
+            </div>
+
             <div className="md:col-span-2 pt-4">
               <button type="submit" disabled={loading} className="w-full bg-beirario hover:bg-beirario-dark text-white font-bold py-4 rounded-xl shadow-lg shadow-beirario/20 transition-all transform active:scale-[0.98] disabled:opacity-70">
-                {loading ? 'Processando Cadastro...' : 'Finalizar e Acessar'}
+                {loading ? 'Cadastrando...' : 'Criar Conta e Ganhar 12 MOVE'}
               </button>
             </div>
           </form>
