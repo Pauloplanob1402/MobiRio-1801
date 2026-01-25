@@ -63,19 +63,21 @@ const MyShipments: React.FC = () => {
   }, []);
 
   const handleConfirmDelivery = async (envioId: string) => {
+    // 1. Resolver identificação do usuário de forma segura
     let userId = currentUserId;
     if (!userId) {
-      const { data: { user } } = await supabase.auth.getUser();
-      userId = user?.id || null;
+      const { data: auth } = await supabase.auth.getUser();
+      userId = auth.user?.id || null;
       if (userId) setCurrentUserId(userId);
     }
 
     if (!userId) {
-      alert("Erro: Sessão não identificada. Por favor, faça login novamente.");
+      alert("Erro: Sessão expirada ou não encontrada. Por favor, faça login novamente.");
       return;
     }
     
-    if (!window.confirm("Deseja confirmar a entrega? Você receberá 1 MOVE e o remetente terá 1 MOVE debitado.")) {
+    // 2. Confirmação do usuário antes da transação
+    if (!window.confirm("Confirmar entrega? Isso transferirá 1 MOVE para sua carteira.")) {
       return;
     }
 
@@ -83,80 +85,48 @@ const MyShipments: React.FC = () => {
     setFeedback(null);
 
     try {
-      // 1. Buscar detalhes do envio e do solicitante
-      const { data: envio, error: envioError } = await supabase
-        .from('envios')
-        .select('fornecedor_id, descricao')
-        .eq('id', envioId)
-        .single();
+      // 3. Chamar a RPC no Supabase (Fonte Única da Verdade)
+      // Esta RPC lida com: update status, debit/credit log em movimentos_credito
+      const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
+        p_envio_id: envioId,
+        p_driver_user_id: userId
+      });
 
-      if (envioError || !envio) throw new Error("Não foi possível localizar o envio.");
-
-      // Localizar o usuário dono do fornecedor que solicitou (Remetente)
-      const { data: requester, error: reqError } = await supabase
-        .from('usuarios')
-        .select('id, creditos')
-        .eq('fornecedor_id', envio.fornecedor_id)
-        .maybeSingle();
-
-      if (reqError || !requester) throw new Error("Solicitante não identificado.");
-
-      // 2. Validação de saldo (Ponto obrigatório conforme prompt)
-      if ((requester.creditos || 0) < 1) {
-        alert("Atenção: Saldo MOVE insuficiente do remetente.");
-        setFeedback({ type: 'error', message: 'Saldo MOVE insuficiente do remetente.' });
-        setProcessingId(null);
-        return;
+      // Se houver erro na comunicação com o Supabase
+      if (error) {
+        console.error("Erro na chamada RPC:", error);
+        throw error;
       }
 
-      // 3. Execução das Transações de Crédito (Ledger-Only)
-      
-      // A - Débito para o Solicitante
-      await supabase.from('movimentos_credito').insert({
-        usuario_id: requester.id,
-        envio_id: envioId,
-        quantidade: 1,
-        tipo: 'DEBITO',
-        fornecedor_id: envio.fornecedor_id
-      });
+      const result = data as any;
 
-      // B - Crédito para o Motorista (Usuário Logado)
-      // Primeiro buscamos o fornecedor_id do motorista
-      const { data: me } = await supabase
-        .from('usuarios')
-        .select('fornecedor_id')
-        .eq('id', userId)
-        .single();
-
-      await supabase.from('movimentos_credito').insert({
-        usuario_id: userId,
-        envio_id: envioId,
-        quantidade: 1,
-        tipo: 'CREDITO',
-        fornecedor_id: me?.fornecedor_id
-      });
-
-      // 4. Atualizar status do envio
-      await supabase
-        .from('envios')
-        .update({ status: 'entregue' })
-        .eq('id', envioId);
-
-      // Feedback de Sucesso
-      setFeedback({ type: 'success', message: 'Entrega confirmada. MOVE transferido!' });
-      alert("Sucesso! Entrega confirmada. 1 MOVE foi transferido para sua conta.");
-      
-      // Notifica atualização de saldo global
-      window.dispatchEvent(new CustomEvent('balanceUpdated'));
-      
-      await fetchData();
+      // Tratar resposta lógica da RPC
+      if (result && result.success === false) {
+        const errorMsg = result.message || 'Falha ao confirmar entrega no banco.';
+        setFeedback({ type: 'error', message: errorMsg });
+        alert(`Atenção: ${errorMsg}`);
+      } else {
+        // Sucesso Total
+        const successMsg = result?.message || 'Entrega confirmada. MOVE transferido com sucesso.';
+        setFeedback({ type: 'success', message: successMsg });
+        alert(`Sucesso: ${successMsg}`);
+        
+        // Disparar evento para componentes que dependem do saldo (Carteira/Novo Envio)
+        window.dispatchEvent(new CustomEvent('balanceUpdated'));
+        
+        // Atualizar a lista de envios removendo o item finalizado
+        await fetchData();
+      }
     } catch (err: any) {
-      console.error("Erro na confirmação:", err);
-      const errorMsg = err.message || 'Erro ao processar entrega.';
-      setFeedback({ type: 'error', message: errorMsg });
-      alert(`Erro: ${errorMsg}`);
+      // Garantir que nenhum erro seja silencioso
+      console.error("Erro fatal no processo de confirmação:", err);
+      const msg = err.message || 'Erro inesperado na rede ou no servidor.';
+      setFeedback({ type: 'error', message: msg });
+      alert(`Erro: ${msg}`);
     } finally {
+      // Sempre encerrar o estado de processamento
       setProcessingId(null);
+      // Ocultar feedback automático após 5s
       setTimeout(() => setFeedback(null), 5000);
     }
   };
