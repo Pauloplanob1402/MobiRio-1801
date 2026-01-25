@@ -21,18 +21,19 @@ const App: React.FC = () => {
     if (!user) return;
 
     try {
-      // Busca perfil focando exclusivamente na tabela usuarios
-      const { data: profile } = await supabase
+      // Busca perfil na tabela usuarios
+      const { data: profile, error: fetchError } = await supabase
         .from('usuarios')
-        .select('id, creditos')
+        .select('id')
         .eq('id', user.id)
         .maybeSingle();
 
       if (!profile) {
+        console.log("Perfil não encontrado, iniciando provisionamento automático...");
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
         
-        // 1. Criar Fornecedor Fallback para garantir integridade das FKs
-        const { data: supplier } = await supabase
+        // 1. Tentar criar Fornecedor (necessário se houver FK obrigatória)
+        const { data: supplier, error: supplierError } = await supabase
           .from('fornecedores')
           .insert({
             razao_social: displayName.toUpperCase(),
@@ -43,18 +44,20 @@ const App: React.FC = () => {
           .select()
           .single();
 
-        if (supplier) {
-          // 2. Criar Usuário OBRIGATÓRIO na tabela usuarios com 12 créditos
-          await supabase.from('usuarios').insert({
-            id: user.id,
-            fornecedor_id: supplier.id,
-            nome: displayName,
-            email: user.email,
-            telefone: '(00) 00000-0000',
-            creditos: 12
-          });
+        // 2. Criar Usuário na tabela usuarios com 12 créditos
+        // Se a criação do fornecedor falhou e houver FK, isso pode falhar, 
+        // mas tentamos seguir com o ID do fornecedor criado ou nulo se permitido
+        await supabase.from('usuarios').insert({
+          id: user.id,
+          fornecedor_id: supplier?.id || null, 
+          nome: displayName,
+          email: user.email,
+          telefone: '(00) 00000-0000',
+          creditos: 12
+        });
 
-          // 3. Registrar movimento de crédito inicial
+        if (supplier?.id) {
+          // 3. Registrar movimento de crédito inicial apenas se houver fornecedor
           await supabase.from('movimentos_credito').insert({
             fornecedor_id: supplier.id,
             quantidade: 12,
@@ -64,50 +67,50 @@ const App: React.FC = () => {
         }
       }
     } catch (err: any) {
-      console.error("Erro ao provisionar perfil de segurança:", err);
+      console.error("Erro silencioso no provisionamento de perfil:", err);
     }
   };
 
   useEffect(() => {
     let mounted = true;
 
-    // Timeout de segurança: Se as requisições demorarem mais de 10s, libera o site
-    const safetyTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn("Safety timeout atingido. Forçando encerramento do loading.");
-        setLoading(false);
-      }
-    }, 10000);
-
     const initializeAuth = async () => {
       try {
-        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        const { data: { session: initialSession } } = await supabase.auth.getSession();
         
-        if (error) throw error;
-
-        if (initialSession && mounted) {
+        if (mounted) {
           setSession(initialSession);
-          await ensureProfile(initialSession.user);
+          // DESTRAVAR LOADING: Executa imediatamente após obter a sessão
+          setLoading(false); 
+          
+          if (initialSession) {
+            // Processa o perfil em background para não travar a UI
+            ensureProfile(initialSession.user);
+          }
         }
       } catch (err: any) {
         console.error("Erro na inicialização da autenticação:", err);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-        }
+        if (mounted) setLoading(false);
       }
     };
 
     initializeAuth();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (mounted) {
         setSession(session);
         if (session) {
-          await ensureProfile(session.user);
+          ensureProfile(session.user);
         }
       }
     });
+
+    // Timeout de segurança absoluto: 5 segundos
+    const safetyTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        setLoading(false);
+      }
+    }, 5000);
 
     return () => {
       mounted = false;

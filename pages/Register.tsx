@@ -40,7 +40,7 @@ const Register: React.FC = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Erro ao criar usuário de autenticação.");
 
-      // 2. Criar Fornecedor (necessário para a estrutura de logística)
+      // 2. Criar Fornecedor
       const { data: supplierData, error: supplierError } = await supabase
         .from('fornecedores')
         .insert({
@@ -52,30 +52,28 @@ const Register: React.FC = () => {
         .select()
         .single();
 
-      if (supplierError) throw supplierError;
-
-      // 3. OBRIGATÓRIO: Criar registro na tabela 'usuarios' com 12 créditos iniciais
-      // Usando o UID do authData.user.id
+      // 3. OBRIGATÓRIO: Criar registro na tabela 'usuarios' com 12 créditos
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
-        fornecedor_id: supplierData.id,
+        fornecedor_id: supplierData?.id || null, // Permite login se fornecedor falhar mas DB aceitar null
         nome: formData.nome_pessoa,
         email: formData.email,
         telefone: formData.telefone,
-        creditos: 12
+        creditos: 12 // Valor explícito garantido
       });
 
       if (profileError) throw profileError;
 
-      // 4. Inserir movimento de crédito para histórico
-      await supabase.from('movimentos_credito').insert({
-        fornecedor_id: supplierData.id,
-        quantidade: 12,
-        tipo: 'CREDITO',
-        envio_id: null
-      });
+      // 4. Inserir movimento de crédito para histórico (opcional para o login, mas bom para a lógica)
+      if (supplierData?.id) {
+        await supabase.from('movimentos_credito').insert({
+          fornecedor_id: supplierData.id,
+          quantidade: 12,
+          tipo: 'CREDITO',
+          envio_id: null
+        });
+      }
 
-      // Redireciona apenas após o sucesso confirmado da inserção no banco
       navigate('/');
     } catch (err: any) {
       console.error("Erro crítico no registro:", err);
