@@ -43,7 +43,7 @@ const App: React.FC = () => {
             endereco: 'Endereço pendente de atualização'
           })
           .select()
-          .single();
+          .maybeSingle();
 
         if (supplier) {
           // 2. Cria o registro do Usuário vinculado ao fornecedor
@@ -64,14 +64,21 @@ const App: React.FC = () => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const { data: { session: initialSession } } = await supabase.auth.getSession();
-      
-      if (initialSession) {
-        await ensureProfile(initialSession.user);
+      try {
+        const { data: { session: initialSession }, error } = await supabase.auth.getSession();
+        
+        if (error) throw error;
+
+        if (initialSession) {
+          await ensureProfile(initialSession.user);
+        }
+        
+        setSession(initialSession);
+      } catch (err) {
+        console.error("Erro na inicialização da autenticação:", err);
+      } finally {
+        setLoading(false);
       }
-      
-      setSession(initialSession);
-      setLoading(false);
     };
 
     initializeAuth();
@@ -83,7 +90,9 @@ const App: React.FC = () => {
       setSession(session);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      if (subscription) subscription.unsubscribe();
+    };
   }, []);
 
   if (loading) {

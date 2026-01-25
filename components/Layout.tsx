@@ -24,26 +24,35 @@ const Layout: React.FC = () => {
 
   useEffect(() => {
     const fetchUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('nome, fornecedores(nome_fantasia)')
-          .eq('id', user.id)
-          .single();
-        
-        if (usuario) {
-          setUserName(usuario.nome);
-          setFornecedorName((usuario.fornecedores as any)?.nome_fantasia || 'Parceiro');
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: usuario } = await supabase
+            .from('usuarios')
+            .select('nome, fornecedores(nome_fantasia)')
+            .eq('id', user.id)
+            .maybeSingle();
+          
+          if (usuario) {
+            setUserName(usuario.nome);
+            setFornecedorName((usuario.fornecedores as any)?.nome_fantasia || 'Parceiro');
+          }
         }
+      } catch (err) {
+        console.error("Erro ao buscar dados do usuário no Layout:", err);
       }
     };
     fetchUserData();
   }, []);
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate('/login');
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error("Erro ao sair:", err);
+    } finally {
+      navigate('/login');
+    }
   };
 
   const menuItems = [
@@ -92,8 +101,8 @@ const Layout: React.FC = () => {
           <div className="mt-auto pt-6 border-t border-gray-100">
             <div className="mb-4 px-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Perfil</p>
-              <p className="text-sm font-bold text-gray-900 mt-1 truncate">{userName}</p>
-              <p className="text-[10px] text-beirario font-bold uppercase truncate">{fornecedorName}</p>
+              <p className="text-sm font-bold text-gray-900 mt-1 truncate">{userName || '...'}</p>
+              <p className="text-[10px] text-beirario font-bold uppercase truncate">{fornecedorName || '...'}</p>
             </div>
             <button onClick={handleSignOut} className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-500 hover:bg-gray-50 hover:text-red-600 rounded-xl transition-all">
               <LogOut size={20} />

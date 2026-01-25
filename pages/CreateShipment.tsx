@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -17,22 +18,26 @@ const CreateShipment: React.FC = () => {
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('fornecedor_id')
-          .eq('id', user.id)
-          .single();
-        if (usuario) setFornecedorId(usuario.fornecedor_id);
-      }
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: usuario } = await supabase
+            .from('usuarios')
+            .select('fornecedor_id')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (usuario) setFornecedorId(usuario.fornecedor_id);
+        }
 
-      const { data: units } = await supabase
-        .from('unidades')
-        .select('*')
-        .order('nome');
-      
-      if (units) setUnidades(units);
+        const { data: units } = await supabase
+          .from('unidades')
+          .select('*')
+          .order('nome');
+        
+        if (units) setUnidades(units);
+      } catch (err) {
+        console.error("Erro ao carregar dados iniciais de envio:", err);
+      }
     };
     fetchInitialData();
   }, []);
@@ -40,24 +45,28 @@ const CreateShipment: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.unidade_id) return alert('Selecione uma unidade Beira Rio de destino.');
+    if (!fornecedorId) return alert('Perfil de fornecedor não encontrado. Recarregue a página.');
     
     setLoading(true);
 
-    const { error } = await supabase
-      .from('envios')
-      .insert({
-        fornecedor_id: fornecedorId,
-        descricao: formData.descricao,
-        unidade_id: formData.unidade_id,
-        status: 'disponivel'
-      });
+    try {
+      const { error } = await supabase
+        .from('envios')
+        .insert({
+          fornecedor_id: fornecedorId,
+          descricao: formData.descricao,
+          unidade_id: formData.unidade_id,
+          status: 'disponivel'
+        });
 
-    if (error) {
-      alert('Erro ao criar envio: ' + error.message);
-      setLoading(false);
-    } else {
+      if (error) throw error;
+      
       setSuccess(true);
       setTimeout(() => navigate('/meus-envios'), 2000);
+    } catch (err: any) {
+      alert('Erro ao criar envio: ' + err.message);
+    } finally {
+      setLoading(false);
     }
   };
 

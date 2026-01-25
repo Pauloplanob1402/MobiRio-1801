@@ -31,7 +31,7 @@ const Dashboard: React.FC = () => {
           .from('usuarios')
           .select('fornecedor_id')
           .eq('id', user.id)
-          .single();
+          .maybeSingle();
         
         // Se o usuário ainda não tiver perfil vinculado, mantém stats em 0 e encerra loading
         if (!usuario) return;
@@ -57,7 +57,7 @@ const Dashboard: React.FC = () => {
       } catch (error) {
         console.error("Erro ao carregar dados do dashboard:", error);
       } finally {
-        // Garante que o loading seja encerrado mesmo se o usuário for novo ou houver erro
+        // Garante que o loading seja encerrado sempre
         setLoading(false);
       }
     };

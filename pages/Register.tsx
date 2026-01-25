@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -42,9 +43,10 @@ const Register: React.FC = () => {
           endereco: formData.endereco
         })
         .select()
-        .single();
+        .maybeSingle();
 
       if (supplierError) throw supplierError;
+      if (!supplierData) throw new Error("Não foi possível criar o perfil de fornecedor.");
 
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
@@ -58,7 +60,9 @@ const Register: React.FC = () => {
 
       navigate('/');
     } catch (err: any) {
+      console.error("Erro no registro:", err);
       setError(err.message || 'Erro inesperado ao realizar cadastro.');
+    } finally {
       setLoading(false);
     }
   };

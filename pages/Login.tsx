@@ -9,7 +9,6 @@ const Login: React.FC = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Fixed: Added const to navigate variable declaration
   const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -17,13 +16,15 @@ const Login: React.FC = () => {
     setLoading(true);
     setError(null);
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-
-    if (error) {
-      setError('Credenciais inválidas. Tente novamente.');
-      setLoading(false);
-    } else {
+    try {
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
       navigate('/');
+    } catch (err: any) {
+      console.error("Erro no login:", err);
+      setError('Credenciais inválidas ou erro de conexão. Tente novamente.');
+    } finally {
+      setLoading(false);
     }
   };
 
