@@ -5,7 +5,7 @@ import { Envio } from '../types';
 import { Package, Truck, Building2, MapPin, CheckCircle2, AlertCircle } from 'lucide-react';
 
 const AvailableShipments: React.FC = () => {
-  const [envios, setEnvios] = useState<Envio[]>([]);
+  const [envios, setEnvios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -18,26 +18,19 @@ const AvailableShipments: React.FC = () => {
         if (!user) return;
         setUserId(user.id);
 
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('fornecedor_id')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (usuario) {
-          const { data } = await supabase
-            .from('envios')
-            .select(`
-              *,
-              fornecedores:fornecedor_id(nome_fantasia, endereco),
-              unidades(nome)
-            `)
-            .eq('status', 'disponivel')
-            .neq('fornecedor_id', usuario.fornecedor_id)
-            .order('created_at', { ascending: false });
-          
-          setEnvios(data || []);
-        }
+        // REGRA: Mostra envios 'disponivel' que NÃO foram solicitados pelo usuário logado
+        const { data } = await supabase
+          .from('envios')
+          .select(`
+            *,
+            fornecedor:fornecedores!fornecedor_id(nome_fantasia, endereco),
+            unidade:unidades!unidade_id(nome)
+          `)
+          .eq('status', 'disponivel')
+          .neq('solicitante_id', user.id) // Crucial: não ver seus próprios pedidos
+          .order('created_at', { ascending: false });
+        
+        setEnvios(data || []);
       } catch (err) {
         console.error("Erro ao buscar caronas:", err);
       } finally {
@@ -120,7 +113,7 @@ const AvailableShipments: React.FC = () => {
                   </div>
                 </div>
                 
-                <h4 className="font-bold text-gray-900 mb-2 line-clamp-2">{(envio.fornecedores as any)?.nome_fantasia}</h4>
+                <h4 className="font-bold text-gray-900 mb-2 line-clamp-2">{envio.fornecedor?.nome_fantasia || 'Remetente Parceiro'}</h4>
                 <p className="text-xs text-gray-500 mb-6 italic">"{envio.descricao}"</p>
                 
                 <div className="space-y-4 pt-4 border-t border-gray-50">
@@ -130,7 +123,7 @@ const AvailableShipments: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Origem (Retirada)</p>
-                      <p className="text-[11px] font-semibold text-gray-700">{(envio.fornecedores as any)?.endereco}</p>
+                      <p className="text-[11px] font-semibold text-gray-700">{envio.fornecedor?.endereco || 'Verificar com remetente'}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-3">
@@ -139,7 +132,7 @@ const AvailableShipments: React.FC = () => {
                     </div>
                     <div>
                       <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Destino Beira Rio</p>
-                      <p className="text-[11px] font-semibold text-gray-700">{(envio.unidades as any)?.nome}</p>
+                      <p className="text-[11px] font-semibold text-gray-700">{envio.unidade?.nome}</p>
                     </div>
                   </div>
                 </div>
@@ -149,7 +142,7 @@ const AvailableShipments: React.FC = () => {
                 <button
                   onClick={() => handleAccept(envio.id)}
                   disabled={processingId === envio.id}
-                  className="w-full bg-beirario hover:bg-beirario-dark text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95"
+                  className="w-full bg-beirario hover:bg-beirario-dark text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 shadow-sm"
                 >
                   {processingId === envio.id ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

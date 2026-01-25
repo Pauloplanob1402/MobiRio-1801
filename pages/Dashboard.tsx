@@ -27,22 +27,16 @@ const Dashboard: React.FC = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('fornecedor_id')
-          .eq('id', user.id)
-          .maybeSingle();
-        
-        // Se o usuário ainda não tiver perfil vinculado, mantém stats em 0 e encerra loading
-        if (!usuario) return;
-
-        const { data: envios } = await supabase
+        // Busca todos os envios onde o usuário é o SOLICITANTE
+        const { data: envios, error } = await supabase
           .from('envios')
           .select(`
             *,
             unidades(nome)
           `)
-          .eq('fornecedor_id', usuario.fornecedor_id);
+          .eq('solicitante_id', user.id);
+
+        if (error) throw error;
 
         const safeEnvios = envios || [];
         const counts = safeEnvios.reduce((acc: any, curr: any) => {
@@ -57,7 +51,6 @@ const Dashboard: React.FC = () => {
       } catch (error) {
         console.error("Erro ao carregar dados do dashboard:", error);
       } finally {
-        // Garante que o loading seja encerrado sempre
         setLoading(false);
       }
     };
@@ -97,7 +90,7 @@ const Dashboard: React.FC = () => {
           className="bg-beirario hover:bg-beirario-dark text-white px-6 py-3 rounded-xl font-bold shadow-lg shadow-beirario/10 transition-all flex items-center justify-center gap-2"
         >
           <Package size={20} />
-          Solicitar Envio
+          Solicitar Carona
         </Link>
       </div>
 
@@ -110,7 +103,7 @@ const Dashboard: React.FC = () => {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
         <div className="xl:col-span-2 bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
           <div className="px-6 py-5 border-b border-gray-50 flex items-center justify-between">
-            <h3 className="font-bold text-gray-900">Histórico Recente</h3>
+            <h3 className="font-bold text-gray-900">Suas Solicitações Recentes</h3>
             <Link to="/meus-envios" className="text-sm text-beirario font-bold hover:underline flex items-center gap-1">
               Ver tudo <ChevronRight size={14} />
             </Link>

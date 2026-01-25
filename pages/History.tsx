@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Envio } from '../types';
-import { Package, Building2, CheckCircle, Search, MapPin } from 'lucide-react';
+import { Package, Building2, CheckCircle, Search } from 'lucide-react';
 
 const History: React.FC = () => {
   const [history, setHistory] = useState<Envio[]>([]);
@@ -15,25 +15,18 @@ const History: React.FC = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const { data: usuario } = await supabase
-          .from('usuarios')
-          .select('fornecedor_id')
-          .eq('id', user.id)
-          .maybeSingle();
-
-        if (usuario) {
-          const { data } = await supabase
-            .from('envios')
-            .select(`
-              *,
-              unidades(nome)
-            `)
-            .eq('fornecedor_id', usuario.fornecedor_id)
-            .eq('status', 'entregue')
-            .order('created_at', { ascending: false });
-          
-          setHistory(data || []);
-        }
+        // Busca envios entregues onde o usuário foi o SOLICITANTE
+        const { data } = await supabase
+          .from('envios')
+          .select(`
+            *,
+            unidades(nome)
+          `)
+          .eq('solicitante_id', user.id)
+          .eq('status', 'entregue')
+          .order('created_at', { ascending: false });
+        
+        setHistory(data || []);
       } catch (err) {
         console.error("Erro ao carregar histórico:", err);
       } finally {
@@ -60,7 +53,7 @@ const History: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h2 className="text-3xl font-black text-gray-900 tracking-tight">Histórico Logístico</h2>
-          <p className="text-gray-500 mt-1">Relatório completo de entregas finalizadas.</p>
+          <p className="text-gray-500 mt-1">Relatório completo de suas solicitações entregues.</p>
         </div>
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />

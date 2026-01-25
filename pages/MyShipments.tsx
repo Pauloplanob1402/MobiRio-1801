@@ -1,107 +1,91 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Envio } from '../types';
-import { Package, Truck, CheckCircle, Clock, MapPin, Building2, User, AlertCircle } from 'lucide-react';
+import { Package, Truck, CheckCircle, Clock, Building2, RefreshCw, Calendar } from 'lucide-react';
 
 const MyShipments: React.FC = () => {
-  const [solicitados, setSolicitados] = useState<Envio[]>([]);
-  const [caronasAceitas, setCaronasAceitas] = useState<Envio[]>([]);
+  const [solicitados, setSolicitados] = useState<any[]>([]);
+  const [caronasAceitas, setCaronasAceitas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
+    setRefreshing(true);
     try {
       const { data: auth } = await supabase.auth.getUser();
       const user = auth.user;
       if (!user) return;
 
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('fornecedor_id')
-        .eq('id', user.id)
-        .maybeSingle();
+      // 1. Busca envios solicitados pelo usuário LOGADO (solicitante_id)
+      // Usando joins explícitos com aliases conforme instrução
+      const { data: enviosSolicitados, error: errorSolicitados } = await supabase
+        .from('envios')
+        .select(`
+          *,
+          unidade:unidades!unidade_id(nome),
+          aceitador:usuarios!envios_aceito_por_fkey(nome)
+        `)
+        .eq('solicitante_id', user.id)
+        .in('status', ['disponivel', 'aceito', 'em_transito', 'PENDENTE'])
+        .order('created_at', { ascending: false });
 
-      if (usuario) {
-        const { data: enviosProprios } = await supabase
-          .from('envios')
-          .select(`
-            *,
-            unidades(nome),
-            aceitador:usuarios!envios_aceito_por_fkey(nome)
-          `)
-          .eq('fornecedor_id', usuario.fornecedor_id)
-          .in('status', ['disponivel', 'aceito', 'em_transito'])
-          .order('created_at', { ascending: false });
+      if (errorSolicitados) throw errorSolicitados;
+      setSolicitados(enviosSolicitados || []);
 
-        if (enviosProprios) setSolicitados(enviosProprios || []);
+      // 2. Busca caronas que o usuário ACEITOU transportar
+      const { data: caronas, error: errorCaronas } = await supabase
+        .from('envios')
+        .select(`
+          *,
+          unidade:unidades!unidade_id(nome),
+          fornecedor:fornecedores!fornecedor_id(nome_fantasia)
+        `)
+        .eq('aceito_por', user.id)
+        .in('status', ['aceito', 'em_transito'])
+        .order('aceito_em', { ascending: false });
 
-        const { data: caronas } = await supabase
-          .from('envios')
-          .select(`
-            *,
-            unidades(nome),
-            fornecedores:fornecedor_id(nome_fantasia)
-          `)
-          .eq('aceito_por', user.id)
-          .in('status', ['aceito', 'em_transito'])
-          .order('aceito_em', { ascending: false });
+      if (errorCaronas) throw errorCaronas;
+      setCaronasAceitas(caronas || []);
 
-        if (caronas) setCaronasAceitas(caronas || []);
-      }
     } catch (err) {
-      console.error("Erro ao buscar seus envios:", err);
+      console.error("Erro ao carregar dados:", err);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const handleConfirmDelivery = async (envioId: string) => {
-    // 1. Obter usuário logado na hora do clique para garantir validade
     const { data: auth } = await supabase.auth.getUser();
     const user = auth.user;
-
-    if (!user) {
-      alert("Sessão não encontrada. Por favor, faça login novamente.");
-      return;
-    }
+    if (!user) return alert("Sessão expirada.");
     
-    if (!window.confirm("Confirmar que o volume foi entregue no destino? Você ganhará 1 MOVE.")) {
-      return;
-    }
+    if (!window.confirm("Confirmar que o volume foi entregue? Você ganhará 1 MOVE.")) return;
 
     setProcessingId(envioId);
-
     try {
-      // 2. Chamar a RPC que processa toda a lógica de crédito no banco (Saldo é verificado no solicitante lá)
       const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
         p_envio_id: envioId,
         p_driver_user_id: user.id
       });
 
       if (error) throw error;
-
       const result = data as any;
 
       if (result && result.success === false) {
-        // Exibe o erro de saldo insuficiente do solicitante ou outro erro de negócio
-        alert("Atenção: " + (result.message || "Não foi possível confirmar a entrega."));
+        alert("Atenção: " + (result.message || "Erro ao confirmar."));
       } else {
-        // 3. Sucesso: Feedback e atualização conforme solicitado
         alert("Entrega confirmada! Você ganhou 1 MOVE");
-        
-        // Notifica outros componentes sobre a mudança no saldo (Wallet, Dashboard, etc)
         window.dispatchEvent(new CustomEvent('balanceUpdated'));
-        
-        // Recarrega a lista
         await fetchData();
       }
     } catch (err: any) {
-      console.error("Erro ao confirmar entrega:", err);
       alert("Erro ao processar entrega: " + (err.message || "Erro de conexão."));
     } finally {
       setProcessingId(null);
@@ -120,16 +104,31 @@ const MyShipments: React.FC = () => {
       case 'aceito': return 'Carona Confirmada';
       case 'em_transito': return 'Em Rota';
       case 'entregue': return 'Entregue';
+      case 'PENDENTE': return 'Pendente';
       default: return status;
     }
   };
 
   return (
     <div className="max-w-5xl mx-auto space-y-12 font-sans pb-10">
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Minhas Atividades</h2>
+          <p className="text-gray-500 mt-1">Gerencie suas solicitações e caronas aceitas.</p>
+        </div>
+        <button 
+          onClick={fetchData} 
+          disabled={refreshing}
+          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all disabled:opacity-50 shadow-sm"
+        >
+          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+          {refreshing ? 'Atualizando...' : 'Atualizar'}
+        </button>
+      </div>
+
       <section>
         <div className="mb-6">
-          <h2 className="text-2xl font-black text-gray-900">Minhas Atividades (Caronas que Aceitei)</h2>
-          <p className="text-gray-500 mt-1">Volumes de terceiros que você está transportando.</p>
+          <h3 className="text-xl font-bold text-gray-900">Caronas que estou transportando</h3>
         </div>
 
         <div className="space-y-4">
@@ -146,27 +145,23 @@ const MyShipments: React.FC = () => {
                     <Truck size={24} />
                   </div>
                   <div>
-                    <h4 className="font-bold text-gray-900">{(envio.fornecedores as any)?.nome_fantasia}</h4>
-                    <p className="text-xs text-gray-500 mt-0.5 italic truncate max-w-xs">"{envio.descricao}"</p>
+                    <h4 className="font-bold text-gray-900">{envio.fornecedor?.nome_fantasia || 'Remetente Mobirio'}</h4>
+                    <p className="text-xs text-gray-500 mt-0.5 italic line-clamp-1">"{envio.descricao}"</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-6">
                   <div className="text-right">
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Destino</p>
-                    <p className="text-xs font-bold text-gray-700">{(envio.unidades as any)?.nome}</p>
+                    <p className="text-xs font-bold text-gray-700">{envio.unidade?.nome}</p>
                   </div>
                   
                   <div className="pl-4 border-l border-gray-100">
                     <button
                       onClick={() => handleConfirmDelivery(envio.id)}
                       disabled={processingId === envio.id}
-                      className="bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold py-2.5 px-4 rounded-xl flex items-center gap-2 transition-all disabled:opacity-50"
+                      className="bg-green-600 hover:bg-green-700 text-white text-[11px] font-bold py-2.5 px-4 rounded-xl flex items-center gap-2 transition-all disabled:opacity-50 shadow-sm"
                     >
-                      {processingId === envio.id ? (
-                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      ) : (
-                        <CheckCircle size={16} />
-                      )}
+                      {processingId === envio.id ? <RefreshCw size={16} className="animate-spin" /> : <CheckCircle size={16} />}
                       Confirmar Entrega
                     </button>
                   </div>
@@ -179,8 +174,7 @@ const MyShipments: React.FC = () => {
 
       <section>
         <div className="mb-6">
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">Meus Envios Solicitados</h2>
-          <p className="text-gray-500 mt-1">Volumes da sua empresa aguardando transporte ou em trânsito.</p>
+          <h3 className="text-xl font-bold text-gray-900">Meus Envios Solicitados</h3>
         </div>
 
         <div className="space-y-4">
@@ -198,13 +192,24 @@ const MyShipments: React.FC = () => {
                   </div>
                   <div>
                     <h4 className="font-bold text-gray-900 text-lg">{envio.descricao}</h4>
-                    <p className="text-xs text-gray-500 flex items-center gap-1 mt-1 font-medium">
-                      <Building2 size={14} className="text-beirario" />
-                      Destino: <span className="text-gray-800">{(envio.unidades as any)?.nome}</span>
-                    </p>
+                    <div className="flex flex-wrap gap-4 mt-1">
+                      <p className="text-xs text-gray-500 flex items-center gap-1 font-medium">
+                        <Building2 size={14} className="text-beirario" />
+                        Destino: <span className="text-gray-800">{envio.unidade?.nome}</span>
+                      </p>
+                      <p className="text-xs text-gray-400 flex items-center gap-1 font-medium">
+                        <Calendar size={14} />
+                        Solicitado em: {new Date(envio.created_at).toLocaleDateString('pt-BR')}
+                      </p>
+                    </div>
+                    {envio.aceitador && (
+                      <p className="text-[10px] text-blue-600 font-bold uppercase mt-2 flex items-center gap-1">
+                        <Truck size={12} /> Transportado por: {envio.aceitador?.nome}
+                      </p>
+                    )}
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0">
                   <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Status</p>
                   <p className={`text-xs font-black uppercase mt-0.5 ${envio.status === 'disponivel' ? 'text-orange-500' : 'text-blue-600'}`}>
                     {getStatusLabel(envio.status)}
