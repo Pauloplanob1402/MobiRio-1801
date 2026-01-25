@@ -9,14 +9,12 @@ const MyShipments: React.FC = () => {
   const [caronasAceitas, setCaronasAceitas] = useState<Envio[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [feedback, setFeedback] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const fetchData = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth.user;
       if (!user) return;
-      setCurrentUserId(user.id);
 
       const { data: usuario } = await supabase
         .from('usuarios')
@@ -63,71 +61,49 @@ const MyShipments: React.FC = () => {
   }, []);
 
   const handleConfirmDelivery = async (envioId: string) => {
-    // 1. Resolver identificação do usuário de forma segura
-    let userId = currentUserId;
-    if (!userId) {
-      const { data: auth } = await supabase.auth.getUser();
-      userId = auth.user?.id || null;
-      if (userId) setCurrentUserId(userId);
-    }
+    // 1. Obter usuário logado na hora do clique para garantir validade
+    const { data: auth } = await supabase.auth.getUser();
+    const user = auth.user;
 
-    if (!userId) {
-      alert("Erro: Sessão expirada ou não encontrada. Por favor, faça login novamente.");
+    if (!user) {
+      alert("Sessão não encontrada. Por favor, faça login novamente.");
       return;
     }
     
-    // 2. Confirmação do usuário antes da transação
-    if (!window.confirm("Confirmar entrega? Isso transferirá 1 MOVE para sua carteira.")) {
+    if (!window.confirm("Confirmar que o volume foi entregue no destino? Você ganhará 1 MOVE.")) {
       return;
     }
 
     setProcessingId(envioId);
-    setFeedback(null);
 
     try {
-      // 3. Chamar a RPC no Supabase (Fonte Única da Verdade)
-      // Esta RPC lida com: update status, debit/credit log em movimentos_credito
+      // 2. Chamar a RPC que processa toda a lógica de crédito no banco
       const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
         p_envio_id: envioId,
-        p_driver_user_id: userId
+        p_driver_user_id: user.id
       });
 
-      // Se houver erro na comunicação com o Supabase
-      if (error) {
-        console.error("Erro na chamada RPC:", error);
-        throw error;
-      }
+      if (error) throw error;
 
       const result = data as any;
 
-      // Tratar resposta lógica da RPC
       if (result && result.success === false) {
-        const errorMsg = result.message || 'Falha ao confirmar entrega no banco.';
-        setFeedback({ type: 'error', message: errorMsg });
-        alert(`Atenção: ${errorMsg}`);
+        alert("Erro: " + (result.message || "Não foi possível confirmar. Verifique o saldo do remetente."));
       } else {
-        // Sucesso Total
-        const successMsg = result?.message || 'Entrega confirmada. MOVE transferido com sucesso.';
-        setFeedback({ type: 'success', message: successMsg });
-        alert(`Sucesso: ${successMsg}`);
+        // 3. Sucesso: Feedback e atualização
+        alert("Entrega confirmada! Você ganhou 1 MOVE.");
         
-        // Disparar evento para componentes que dependem do saldo (Carteira/Novo Envio)
+        // Notifica outros componentes sobre a mudança no saldo (Wallet, etc)
         window.dispatchEvent(new CustomEvent('balanceUpdated'));
         
-        // Atualizar a lista de envios removendo o item finalizado
+        // Recarrega a lista
         await fetchData();
       }
     } catch (err: any) {
-      // Garantir que nenhum erro seja silencioso
-      console.error("Erro fatal no processo de confirmação:", err);
-      const msg = err.message || 'Erro inesperado na rede ou no servidor.';
-      setFeedback({ type: 'error', message: msg });
-      alert(`Erro: ${msg}`);
+      console.error("Erro ao confirmar entrega:", err);
+      alert("Erro ao processar entrega: " + (err.message || "Erro de conexão."));
     } finally {
-      // Sempre encerrar o estado de processamento
       setProcessingId(null);
-      // Ocultar feedback automático após 5s
-      setTimeout(() => setFeedback(null), 5000);
     }
   };
 
@@ -149,13 +125,6 @@ const MyShipments: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-12 font-sans pb-10">
-      {feedback && (
-        <div className={`fixed top-20 right-6 z-50 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300 ${feedback.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
-          {feedback.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
-          <span className="font-bold">{feedback.message}</span>
-        </div>
-      )}
-
       <section>
         <div className="mb-6">
           <h2 className="text-2xl font-black text-gray-900">Minhas Atividades (Caronas que Aceitei)</h2>
