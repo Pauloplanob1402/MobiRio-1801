@@ -40,7 +40,7 @@ const Register: React.FC = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Erro ao criar usuário de autenticação.");
 
-      // 2. Criar Fornecedor
+      // 2. Criar Fornecedor (necessário para a estrutura de logística)
       const { data: supplierData, error: supplierError } = await supabase
         .from('fornecedores')
         .insert({
@@ -50,23 +50,24 @@ const Register: React.FC = () => {
           endereco: formData.endereco
         })
         .select()
-        .single(); // Força erro se não for criado
+        .single();
 
       if (supplierError) throw supplierError;
 
-      // 3. Criar Usuário com 12 Créditos iniciais na coluna 'creditos'
+      // 3. OBRIGATÓRIO: Criar registro na tabela 'usuarios' com 12 créditos iniciais
+      // Usando o UID do authData.user.id
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
         fornecedor_id: supplierData.id,
         nome: formData.nome_pessoa,
-        telefone: formData.telefone,
         email: formData.email,
-        creditos: 12 // Atribuição direta de créditos iniciais
+        telefone: formData.telefone,
+        creditos: 12
       });
 
       if (profileError) throw profileError;
 
-      // 4. Inserir movimento de crédito para histórico na carteira
+      // 4. Inserir movimento de crédito para histórico
       await supabase.from('movimentos_credito').insert({
         fornecedor_id: supplierData.id,
         quantidade: 12,
@@ -74,11 +75,11 @@ const Register: React.FC = () => {
         envio_id: null
       });
 
-      // Redirecionamento apenas após sucesso total de todas as etapas
+      // Redireciona apenas após o sucesso confirmado da inserção no banco
       navigate('/');
     } catch (err: any) {
       console.error("Erro crítico no registro:", err);
-      setError(err.message || 'Erro ao realizar cadastro. Verifique os dados e tente novamente.');
+      setError(err.message || 'Erro ao realizar cadastro. Tente novamente.');
     } finally {
       setLoading(false);
     }

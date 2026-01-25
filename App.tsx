@@ -21,29 +21,30 @@ const App: React.FC = () => {
     if (!user) return;
 
     try {
+      // Busca perfil focando exclusivamente na tabela usuarios
       const { data: profile } = await supabase
         .from('usuarios')
-        .select('id, fornecedor_id, creditos')
+        .select('id, creditos')
         .eq('id', user.id)
         .maybeSingle();
 
       if (!profile) {
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
         
-        // 1. Criar Fornecedor Fallback
+        // 1. Criar Fornecedor Fallback para garantir integridade das FKs
         const { data: supplier } = await supabase
           .from('fornecedores')
           .insert({
             razao_social: displayName.toUpperCase(),
             nome_fantasia: displayName,
             cnpj: '00.000.000/0000-00',
-            endereco: 'Endereço pendente de atualização'
+            endereco: 'Pendente'
           })
           .select()
           .single();
 
         if (supplier) {
-          // 2. Criar Usuário com 12 créditos
+          // 2. Criar Usuário OBRIGATÓRIO na tabela usuarios com 12 créditos
           await supabase.from('usuarios').insert({
             id: user.id,
             fornecedor_id: supplier.id,
@@ -53,7 +54,7 @@ const App: React.FC = () => {
             creditos: 12
           });
 
-          // 3. Registrar movimento de crédito
+          // 3. Registrar movimento de crédito inicial
           await supabase.from('movimentos_credito').insert({
             fornecedor_id: supplier.id,
             quantidade: 12,
