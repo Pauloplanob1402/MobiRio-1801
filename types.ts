@@ -22,6 +22,7 @@ export interface Usuario {
   nome: string;
   telefone: string;
   email: string;
+  creditos: number;
   created_at: string;
   fornecedores?: Fornecedor;
 }

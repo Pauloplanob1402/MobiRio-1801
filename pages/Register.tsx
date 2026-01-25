@@ -26,7 +26,7 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      // Registrar no Auth com metadados para disponibilidade imediata
+      // 1. Criar conta no Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({ 
         email: formData.email, 
         password: formData.senha,
@@ -38,47 +38,56 @@ const Register: React.FC = () => {
       });
 
       if (authError) throw authError;
-      if (!authData.user) throw new Error("Falha ao criar usuário de autenticação.");
+      if (!authData.user) throw new Error("Erro ao criar usuário de autenticação.");
 
-      // Criar fornecedor
+      // 2. Criar Fornecedor
       const { data: supplierData, error: supplierError } = await supabase
         .from('fornecedores')
         .insert({
-          razao_social: formData.razao_social,
+          razao_social: formData.razao_social.toUpperCase(),
           nome_fantasia: formData.nome_fantasia,
           cnpj: formData.cnpj,
           endereco: formData.endereco
         })
         .select()
-        .maybeSingle();
+        .single(); // Força erro se não for criado
 
       if (supplierError) throw supplierError;
-      if (!supplierData) throw new Error("Não foi possível criar o perfil de fornecedor.");
 
-      // Criar usuário vinculado
+      // 3. Criar Usuário com 12 Créditos iniciais na coluna 'creditos'
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
         fornecedor_id: supplierData.id,
         nome: formData.nome_pessoa,
         telefone: formData.telefone,
-        email: formData.email
+        email: formData.email,
+        creditos: 12 // Atribuição direta de créditos iniciais
       });
 
       if (profileError) throw profileError;
 
+      // 4. Inserir movimento de crédito para histórico na carteira
+      await supabase.from('movimentos_credito').insert({
+        fornecedor_id: supplierData.id,
+        quantidade: 12,
+        tipo: 'CREDITO',
+        envio_id: null
+      });
+
+      // Redirecionamento apenas após sucesso total de todas as etapas
       navigate('/');
     } catch (err: any) {
-      console.error("Erro no registro:", err);
-      setError(err.message || 'Erro inesperado ao realizar cadastro.');
+      console.error("Erro crítico no registro:", err);
+      setError(err.message || 'Erro ao realizar cadastro. Verifique os dados e tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
-  const inputClass = "w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all text-sm";
+  const inputClass = "w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-beirario/20 focus:border-beirario transition-all text-sm text-gray-900";
 
   return (
-    <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans">
+    <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans text-gray-900">
       <div className="hidden lg:flex lg:w-1/3 bg-beirario items-center justify-center p-12 text-white">
         <div className="max-w-md text-center flex flex-col items-center">
           <div className="w-24 h-24 bg-white/10 rounded-[2rem] flex items-center justify-center mb-8 backdrop-blur-sm border border-white/5">

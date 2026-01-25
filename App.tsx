@@ -17,23 +17,20 @@ const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Função para garantir que o usuário tenha um perfil de fornecedor e usuário vinculado
   const ensureProfile = async (user: any) => {
     if (!user) return;
 
     try {
-      // Verifica se já existe um registro na tabela usuarios para este ID de autenticação
       const { data: profile } = await supabase
         .from('usuarios')
-        .select('id')
+        .select('id, fornecedor_id, creditos')
         .eq('id', user.id)
         .maybeSingle();
 
-      // Se não houver perfil, cria a estrutura básica necessária
       if (!profile) {
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
         
-        // 1. Cria o registro do Fornecedor
+        // 1. Criar Fornecedor Fallback
         const { data: supplier } = await supabase
           .from('fornecedores')
           .insert({
@@ -43,25 +40,30 @@ const App: React.FC = () => {
             endereco: 'Endereço pendente de atualização'
           })
           .select()
-          .maybeSingle();
+          .single();
 
         if (supplier) {
-          // 2. Cria o registro do Usuário vinculado ao fornecedor
-          // Isso disparará o trigger do banco que concede os 12 MOVE iniciais
+          // 2. Criar Usuário com 12 créditos
           await supabase.from('usuarios').insert({
             id: user.id,
             fornecedor_id: supplier.id,
             nome: displayName,
             email: user.email,
-            telefone: '(00) 00000-0000'
+            telefone: '(00) 00000-0000',
+            creditos: 12
+          });
+
+          // 3. Registrar movimento de crédito
+          await supabase.from('movimentos_credito').insert({
+            fornecedor_id: supplier.id,
+            quantidade: 12,
+            tipo: 'CREDITO',
+            envio_id: null
           });
         }
       }
     } catch (err: any) {
-      // Silencia AbortError para evitar ruído no console se for apenas cancelamento de navegação
-      if (err.name !== 'AbortError') {
-        console.error("Erro ao provisionar perfil:", err);
-      }
+      console.error("Erro ao provisionar perfil de segurança:", err);
     }
   };
 
@@ -70,21 +72,16 @@ const App: React.FC = () => {
 
     const initializeAuth = async () => {
       try {
-        // Tenta obter a sessão atual. Se falhar ou for abortado, cai no catch.
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
         if (error) throw error;
 
         if (initialSession && mounted) {
           setSession(initialSession);
-          // Executamos o provisionamento de perfil de forma assíncrona sem 'await' 
-          // para não travar o carregamento inicial da UI em caso de lentidão no banco
-          ensureProfile(initialSession.user);
+          await ensureProfile(initialSession.user);
         }
       } catch (err: any) {
-        if (err.name !== 'AbortError') {
-          console.error("Erro na inicialização da autenticação:", err);
-        }
+        console.error("Erro na inicialização da autenticação:", err);
       } finally {
         if (mounted) {
           setLoading(false);
@@ -98,7 +95,7 @@ const App: React.FC = () => {
       if (mounted) {
         setSession(session);
         if (session) {
-          ensureProfile(session.user);
+          await ensureProfile(session.user);
         }
       }
     });

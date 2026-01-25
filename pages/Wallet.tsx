@@ -15,13 +15,18 @@ const Wallet: React.FC = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
+        // Tentar obter o saldo direto do perfil do usuário (coluna creditos)
         const { data: usuario } = await supabase
           .from('usuarios')
-          .select('fornecedor_id')
+          .select('fornecedor_id, creditos')
           .eq('id', user.id)
           .maybeSingle();
         
         if (!usuario) return;
+
+        if (typeof usuario.creditos === 'number') {
+          setSaldo(usuario.creditos);
+        }
 
         const { data: movs } = await supabase
           .from('movimentos_credito')
@@ -33,10 +38,13 @@ const Wallet: React.FC = () => {
           const movements = movs as MovimentoCredito[];
           setMovimentos(movements);
           
-          const total = movements.reduce((acc, curr) => {
-            return curr.tipo === 'CREDITO' ? acc + curr.quantidade : acc - curr.quantidade;
-          }, 0);
-          setSaldo(total);
+          // Fallback: se a coluna 'creditos' não existisse ou estivesse zerada indevidamente
+          if (saldo === 0 && movements.length > 0) {
+            const total = movements.reduce((acc, curr) => {
+              return curr.tipo === 'CREDITO' ? acc + curr.quantidade : acc - curr.quantidade;
+            }, 0);
+            setSaldo(total);
+          }
         }
       } catch (err) {
         console.error("Erro ao carregar carteira:", err);
@@ -46,7 +54,7 @@ const Wallet: React.FC = () => {
     };
 
     fetchData();
-  }, []);
+  }, [saldo]);
 
   if (loading) return (
     <div className="flex justify-center py-12">
@@ -55,7 +63,7 @@ const Wallet: React.FC = () => {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 font-sans">
+    <div className="max-w-4xl mx-auto space-y-8 font-sans text-gray-900">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h2 className="text-3xl font-extrabold text-gray-900 tracking-tight">Meus MOVE</h2>
@@ -108,8 +116,8 @@ const Wallet: React.FC = () => {
 
       <div className="bg-gray-50 border border-gray-100 p-6 rounded-2xl">
         <p className="text-sm text-gray-500 leading-relaxed text-center">
-          Durante a prévia, o acesso está liberado para entendimento do fluxo.<br />
-          No lançamento oficial, o Mobirio funcionará em modelo anual.
+          Cada carona concluída equilibra o ecossistema Mobirio.<br />
+          Os créditos iniciais garantem suas primeiras solicitações de carona.
         </p>
       </div>
     </div>
