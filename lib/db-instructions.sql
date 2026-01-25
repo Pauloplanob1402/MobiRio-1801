@@ -1,8 +1,8 @@
 
--- 1. Garante que a tabela 'usuarios' tenha a coluna 'creditos'
+-- 1. Garante que a tabela 'usuarios' tenha a coluna 'creditos' para cache de saldo
 ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS creditos INTEGER DEFAULT 0;
 
--- 2. Ajusta a tabela 'movimentos_credito' para usar 'usuario_id' se necessário
+-- 2. Garante que a tabela 'movimentos_credito' tenha a coluna 'usuario_id' para rastreamento individual
 DO $$ 
 BEGIN 
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='movimentos_credito' AND column_name='usuario_id') THEN
@@ -10,58 +10,33 @@ BEGIN
     END IF;
 END $$;
 
--- 3. Função Transacional RPC para Confirmar Entrega e Transferir Créditos
--- Esta função é o motor do sistema de créditos MOVE.
-CREATE OR REPLACE FUNCTION rpc_confirmar_entrega(p_envio_id UUID, p_driver_user_id UUID)
-RETURNS JSON AS $$
-DECLARE
-    v_requester_user_id UUID;
-    v_current_credits INTEGER;
-    v_fornecedor_id UUID;
-    v_driver_fornecedor_id UUID;
+-- 3. Função de Gatilho (Trigger) para Atualização Automática de Saldo
+-- Esta função garante que qualquer INSERT na tabela 'movimentos_credito' 
+-- reflita instantaneamente na coluna 'creditos' da tabela 'usuarios'.
+-- Isso permite que o app leia o saldo rapidamente sem precisar somar todo o histórico.
+CREATE OR REPLACE FUNCTION fn_atualizar_saldo_usuario()
+RETURNS TRIGGER AS $$
 BEGIN
-    -- Obter o ID do fornecedor do envio (quem solicitou)
-    SELECT fornecedor_id INTO v_fornecedor_id FROM envios WHERE id = p_envio_id;
-
-    -- Localizar o usuário dono desse fornecedor (solicitante) na tabela usuarios
-    -- Usamos o saldo da tabela usuarios como fonte da verdade.
-    SELECT id, creditos INTO v_requester_user_id, v_current_credits
-    FROM usuarios 
-    WHERE fornecedor_id = v_fornecedor_id
-    LIMIT 1;
-
-    -- Obter o fornecedor_id do motorista para o histórico
-    SELECT fornecedor_id INTO v_driver_fornecedor_id FROM usuarios WHERE id = p_driver_user_id;
-
-    -- Validação de existência do solicitante
-    IF v_requester_user_id IS NULL THEN
-        RETURN json_build_object('success', false, 'message', 'Solicitante não encontrado para este envio.');
+    IF (NEW.tipo = 'CREDITO') THEN
+        UPDATE usuarios 
+        SET creditos = creditos + NEW.quantidade 
+        WHERE id = NEW.usuario_id;
+    ELSIF (NEW.tipo = 'DEBITO') THEN
+        UPDATE usuarios 
+        SET creditos = creditos - NEW.quantidade 
+        WHERE id = NEW.usuario_id;
     END IF;
-
-    -- Validação de saldo do solicitante (Verificação universal na tabela usuarios)
-    IF v_current_credits < 1 THEN
-        RETURN json_build_object('success', false, 'message', 'Saldo MOVE insuficiente do remetente.');
-    END IF;
-
-    -- INÍCIO DA TRANSAÇÃO ATÔMICA
-    
-    -- 1. Deduzir 1 crédito do solicitante (Remetente)
-    UPDATE usuarios SET creditos = creditos - 1 WHERE id = v_requester_user_id;
-    
-    -- 2. Adicionar 1 crédito ao motorista (Entregador logado)
-    UPDATE usuarios SET creditos = creditos + 1 WHERE id = p_driver_user_id;
-
-    -- 3. Atualizar status do envio para entregue
-    UPDATE envios SET status = 'entregue' WHERE id = p_envio_id;
-
-    -- 4. Registrar movimento de DÉBITO no histórico (Remetente)
-    INSERT INTO movimentos_credito (usuario_id, envio_id, quantidade, tipo, fornecedor_id)
-    VALUES (v_requester_user_id, p_envio_id, 1, 'DEBITO', v_fornecedor_id);
-
-    -- 5. Registrar movimento de CRÉDITO no histórico (Entregador)
-    INSERT INTO movimentos_credito (usuario_id, envio_id, quantidade, tipo, fornecedor_id)
-    VALUES (p_driver_user_id, p_envio_id, 1, 'CREDITO', v_driver_fornecedor_id);
-
-    RETURN json_build_object('success', true, 'message', 'Entrega confirmada com sucesso! 1 MOVE transferido.');
+    RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
+
+-- 4. Aplicação do Gatilho
+DROP TRIGGER IF EXISTS trg_atualizar_saldo ON movimentos_credito;
+CREATE TRIGGER trg_atualizar_saldo
+AFTER INSERT ON movimentos_credito
+FOR EACH ROW
+EXECUTE FUNCTION fn_atualizar_saldo_usuario();
+
+-- 5. Comentário de segurança
+-- A partir de agora, o sistema é "Ledger-Based": 
+-- Você insere o movimento, e o banco cuida do saldo.

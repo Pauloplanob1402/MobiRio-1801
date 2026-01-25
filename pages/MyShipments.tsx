@@ -63,7 +63,6 @@ const MyShipments: React.FC = () => {
   }, []);
 
   const handleConfirmDelivery = async (envioId: string) => {
-    // Garantir que temos o ID do usuário logado antes de prosseguir
     let userId = currentUserId;
     if (!userId) {
       const { data: { user } } = await supabase.auth.getUser();
@@ -84,42 +83,80 @@ const MyShipments: React.FC = () => {
     setFeedback(null);
 
     try {
-      // Chama a RPC Transacional para transferência de créditos baseada na tabela 'usuarios'
-      const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
-        p_envio_id: envioId,
-        p_driver_user_id: userId
+      // 1. Buscar detalhes do envio e do solicitante
+      const { data: envio, error: envioError } = await supabase
+        .from('envios')
+        .select('fornecedor_id, descricao')
+        .eq('id', envioId)
+        .single();
+
+      if (envioError || !envio) throw new Error("Não foi possível localizar o envio.");
+
+      // Localizar o usuário dono do fornecedor que solicitou (Remetente)
+      const { data: requester, error: reqError } = await supabase
+        .from('usuarios')
+        .select('id, creditos')
+        .eq('fornecedor_id', envio.fornecedor_id)
+        .maybeSingle();
+
+      if (reqError || !requester) throw new Error("Solicitante não identificado.");
+
+      // 2. Validação de saldo (Ponto obrigatório conforme prompt)
+      if ((requester.creditos || 0) < 1) {
+        alert("Atenção: Saldo MOVE insuficiente do remetente.");
+        setFeedback({ type: 'error', message: 'Saldo MOVE insuficiente do remetente.' });
+        setProcessingId(null);
+        return;
+      }
+
+      // 3. Execução das Transações de Crédito (Ledger-Only)
+      
+      // A - Débito para o Solicitante
+      await supabase.from('movimentos_credito').insert({
+        usuario_id: requester.id,
+        envio_id: envioId,
+        quantidade: 1,
+        tipo: 'DEBITO',
+        fornecedor_id: envio.fornecedor_id
       });
 
-      if (error) {
-        console.error("Erro ao chamar RPC:", error);
-        throw new Error(error.message || "Erro de conexão com o servidor.");
-      }
+      // B - Crédito para o Motorista (Usuário Logado)
+      // Primeiro buscamos o fornecedor_id do motorista
+      const { data: me } = await supabase
+        .from('usuarios')
+        .select('fornecedor_id')
+        .eq('id', userId)
+        .single();
 
-      const result = data as any;
+      await supabase.from('movimentos_credito').insert({
+        usuario_id: userId,
+        envio_id: envioId,
+        quantidade: 1,
+        tipo: 'CREDITO',
+        fornecedor_id: me?.fornecedor_id
+      });
 
-      if (result && result.success === false) {
-        const msg = result.message || 'Saldo MOVE insuficiente do remetente.';
-        setFeedback({ type: 'error', message: msg });
-        alert(`Atenção: ${msg}`);
-      } else {
-        const msg = result.message || 'Entrega confirmada. MOVE creditado!';
-        setFeedback({ type: 'success', message: msg });
-        alert(`Sucesso! ${msg}`);
-        
-        // Notifica o sistema para atualizar saldos em tempo real sem F5 em toda a aplicação
-        window.dispatchEvent(new CustomEvent('balanceUpdated'));
-        
-        // Recarrega os dados locais da página
-        await fetchData();
-      }
+      // 4. Atualizar status do envio
+      await supabase
+        .from('envios')
+        .update({ status: 'entregue' })
+        .eq('id', envioId);
+
+      // Feedback de Sucesso
+      setFeedback({ type: 'success', message: 'Entrega confirmada. MOVE transferido!' });
+      alert("Sucesso! Entrega confirmada. 1 MOVE foi transferido para sua conta.");
+      
+      // Notifica atualização de saldo global
+      window.dispatchEvent(new CustomEvent('balanceUpdated'));
+      
+      await fetchData();
     } catch (err: any) {
-      console.error("Erro Fatal na Transação:", err);
-      const errorMsg = err.message || 'Erro ao processar transação MOVE. Verifique se a RPC está instalada no banco.';
+      console.error("Erro na confirmação:", err);
+      const errorMsg = err.message || 'Erro ao processar entrega.';
       setFeedback({ type: 'error', message: errorMsg });
       alert(`Erro: ${errorMsg}`);
     } finally {
       setProcessingId(null);
-      // Remove o feedback visual flutuante após 5 segundos
       setTimeout(() => setFeedback(null), 5000);
     }
   };
@@ -142,7 +179,6 @@ const MyShipments: React.FC = () => {
 
   return (
     <div className="max-w-5xl mx-auto space-y-12 font-sans pb-10">
-      {/* Toast flutuante para feedback rápido */}
       {feedback && (
         <div className={`fixed top-20 right-6 z-50 px-6 py-4 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300 ${feedback.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
           {feedback.type === 'success' ? <CheckCircle size={20} /> : <AlertCircle size={20} />}
