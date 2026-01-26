@@ -18,11 +18,12 @@ const MyShipments: React.FC = () => {
       const user = auth.user;
       if (!user) return;
 
+      // MEUS ENVIOS: Filtro correto onde solicitante_id é igual ao ID do usuário logado
       const { data: dataSolicitados } = await supabase
         .from('envios')
         .select(`
           *,
-          unidade:unidades!unidade_id(nome),
+          unidade:unidades(nome),
           fornecedor:usuarios!fornecedor_id(nome, telefone)
         `)
         .eq('solicitante_id', user.id)
@@ -30,12 +31,13 @@ const MyShipments: React.FC = () => {
 
       setSolicitados(dataSolicitados || []);
 
+      // TRANSPORTANDO: Envios aceitos pelo usuário logado
       const { data: dataTransporte } = await supabase
         .from('envios')
         .select(`
           *,
           solicitante:usuarios!solicitante_id(nome, telefone, endereco),
-          unidade:unidades!unidade_id(nome)
+          unidade:unidades(nome)
         `)
         .eq('fornecedor_id', user.id)
         .eq('status', 'em_transito')
@@ -43,7 +45,7 @@ const MyShipments: React.FC = () => {
 
       setEmTransporte(dataTransporte || []);
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao carregar atividades:", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -52,7 +54,14 @@ const MyShipments: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('realtime-my').on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchData()).subscribe();
+    const channel = supabase
+      .channel('my-activities-realtime')
+      .on(
+        'postgres_changes', 
+        { event: '*', schema: 'public', table: 'envios' }, 
+        () => fetchData()
+      )
+      .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
 
@@ -64,7 +73,7 @@ const MyShipments: React.FC = () => {
 
     setProcessingId(envioId);
     try {
-      // O RPC garante a transação atômica entre as contas na tabela 'usuarios'
+      // CONFIRMAÇÃO: Uso da função RPC rpc_confirmar_entrega para transação atômica
       const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
         p_envio_id: envioId,
         p_driver_user_id: auth.user.id
@@ -76,9 +85,9 @@ const MyShipments: React.FC = () => {
       if (result && result.success === false) {
         alert(result.message);
       } else {
-        // Dispara evento global para atualizar o saldo na Carteira e Header sem F5
+        // Notifica outros componentes da mudança de saldo
         window.dispatchEvent(new CustomEvent('balanceUpdated'));
-        alert("Entrega confirmada! +1 MOVE adicionado.");
+        alert("Entrega confirmada com sucesso!");
         fetchData();
       }
     } catch (err: any) {
@@ -110,7 +119,7 @@ const MyShipments: React.FC = () => {
         <h3 className="text-xl font-bold text-gray-900 border-l-4 border-beirario pl-4">Caronas que estou transportando</h3>
         <div className="grid gap-4">
           {emTransporte.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-dashed text-center text-gray-400 text-sm">Nenhuma carona em transporte.</div>
+            <div className="bg-white p-12 rounded-2xl border border-dashed text-center text-gray-400 text-sm">Nenhuma carona em transporte no momento.</div>
           ) : (
             emTransporte.map(envio => (
               <div key={envio.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-6 md:items-center">

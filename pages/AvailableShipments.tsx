@@ -13,8 +13,9 @@ const AvailableShipments: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // QUERY GLOBAL: Removemos qualquer filtro de fornecedor_id. 
-      // O único critério é o status estar 'disponivel' e não ser do próprio usuário.
+      // QUERY DE LISTAGEM: Filtro simplificado apenas por status 'disponivel'.
+      // Removemos qualquer restrição de fornecedor_id ou unidade que possa ocultar registros.
+      // Mantemos o neq(solicitante_id) apenas para o usuário não aceitar a própria carona.
       const { data, error } = await supabase
         .from('envios')
         .select(`
@@ -28,7 +29,7 @@ const AvailableShipments: React.FC = () => {
             endereco,
             telefone
           ),
-          unidade_destino:unidades!unidade_id(nome)
+          unidade:unidades(nome)
         `)
         .eq('status', 'disponivel')
         .neq('solicitante_id', user.id)
@@ -46,14 +47,17 @@ const AvailableShipments: React.FC = () => {
   useEffect(() => {
     fetchAvailable();
 
-    // Configuração do Canal de Tempo Real
+    // REALTIME ATIVO: Escutando mudanças na tabela envios para atualização instantânea
     const channel = supabase
-      .channel('realtime-available')
+      .channel('schema-db-changes')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'envios' },
+        {
+          event: '*', // Escuta INSERT, UPDATE e DELETE
+          schema: 'public',
+          table: 'envios',
+        },
         () => {
-          // Atualiza a lista sempre que houver QUALQUER mudança na tabela de envios
           fetchAvailable();
         }
       )
@@ -70,7 +74,6 @@ const AvailableShipments: React.FC = () => {
     
     setProcessingId(envioId);
     try {
-      // O motorista é o usuário logado (user.id)
       const { error } = await supabase
         .from('envios')
         .update({
@@ -84,9 +87,8 @@ const AvailableShipments: React.FC = () => {
 
       if (error) throw error;
       
-      // Feedback visual rápido
-      fetchAvailable();
       alert('Carona aceita! O volume aparecerá em "Minhas Atividades".');
+      fetchAvailable();
     } catch (err: any) {
       alert('Erro ao aceitar carona: ' + err.message);
     } finally {
@@ -145,7 +147,7 @@ const AvailableShipments: React.FC = () => {
                     <Building2 size={14} className="text-beirario mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">DESTINO</p>
-                      <p className="text-xs font-semibold text-gray-700">{envio.unidade_destino?.nome}</p>
+                      <p className="text-xs font-semibold text-gray-700">{envio.unidade?.nome}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
