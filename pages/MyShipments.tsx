@@ -18,7 +18,6 @@ const MyShipments: React.FC = () => {
       const user = auth.user;
       if (!user) return;
 
-      // MEUS ENVIOS: Query simplificada para evitar 400
       const { data: dataSolicitados } = await supabase
         .from('envios')
         .select(`
@@ -31,7 +30,6 @@ const MyShipments: React.FC = () => {
 
       setSolicitados(dataSolicitados || []);
 
-      // TRANSPORTANDO: Envios onde eu sou o fornecedor
       const { data: dataTransporte } = await supabase
         .from('envios')
         .select(`
@@ -55,35 +53,40 @@ const MyShipments: React.FC = () => {
   useEffect(() => {
     fetchData();
     const channel = supabase
-      .channel('my-shipments-realtime')
+      .channel('my-activities')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
 
   const handleConfirmDelivery = async (envioId: string) => {
+    const { data: auth } = await supabase.auth.getUser();
+    const user = auth.user;
+    if (!user) return;
+    
+    if (!window.confirm("Confirmar entrega? Isso gera +1 MOVE para você e debita 1 MOVE do solicitante.")) return;
+
+    setProcessingId(envioId);
     try {
-      if (!window.confirm("Confirmar entrega do volume?")) return;
-      
-      setProcessingId(envioId);
-      
-      // Chamada da função RPC no banco para transação de créditos
+      // 1. CHAMADA RPC: Chamando a função rpc_confirmar_entrega no banco
       const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
         p_envio_id: envioId,
-        p_driver_user_id: (await supabase.auth.getUser()).data.user?.id
+        p_driver_user_id: user.id
       });
 
       if (error) throw error;
       
       const result = data as any;
-      if (result.success) {
-        alert('Entrega confirmada! Saldo MOVE atualizado.');
+      if (result && result.success) {
+        // 2. SINCRONIZAÇÃO: Dispara evento global para que Wallet e outros componentes atualizem o saldo MOVE
         window.dispatchEvent(new CustomEvent('balanceUpdated'));
+        alert('Entrega confirmada com sucesso!');
         fetchData();
       } else {
-        alert('Erro: ' + result.message);
+        alert('Falha na operação: ' + (result?.message || 'Erro desconhecido.'));
       }
     } catch (err: any) {
+      console.error("Erro ao confirmar entrega:", err);
       alert("Erro ao confirmar entrega: " + err.message);
     } finally {
       setProcessingId(null);
@@ -112,7 +115,7 @@ const MyShipments: React.FC = () => {
         <h3 className="text-xl font-bold text-gray-900 border-l-4 border-beirario pl-4">Caronas que estou transportando</h3>
         <div className="grid gap-4">
           {emTransporte.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-dashed text-center text-gray-400 text-sm">Nenhuma carona em transporte.</div>
+            <div className="bg-white p-12 rounded-2xl border border-dashed text-center text-gray-400 text-sm">Nenhuma carona em transporte no momento.</div>
           ) : (
             emTransporte.map(envio => (
               <div key={envio.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-6 md:items-center">
@@ -131,7 +134,7 @@ const MyShipments: React.FC = () => {
                   </div>
                 </div>
                 <div className="shrink-0">
-                  <button onClick={() => handleConfirmDelivery(envio.id)} disabled={processingId === envio.id} className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-black py-3 px-6 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
+                  <button onClick={() => handleConfirmDelivery(envio.id)} disabled={processingId === envio.id} className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-black py-3.5 px-6 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
                     {processingId === envio.id ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle size={16} />}
                     Confirmar Entrega
                   </button>

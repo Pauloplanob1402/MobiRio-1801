@@ -12,28 +12,31 @@ const Wallet: React.FC = () => {
   const fetchData = useCallback(async () => {
     try {
       const { data: auth } = await supabase.auth.getUser();
-      if (!auth.user) return;
+      const user = auth.user;
+      if (!user) return;
 
-      // 1. Saldo do Usuário
-      const { data: usuario } = await supabase
-        .from('usuarios')
-        .select('creditos')
-        .eq('id', auth.user.id)
-        .single();
-      
-      if (usuario) setSaldo(usuario.creditos);
-
-      // 2. Extrato
-      const { data: movs } = await supabase
+      // 1. SALDO CALCULADO (Single Source of Truth):
+      // Ignoramos qualquer campo estático de 'creditos' e calculamos o saldo real 
+      // a partir do histórico completo de movimentos de crédito do usuário.
+      const { data: movs, error: movError } = await supabase
         .from('movimentos_credito')
         .select(`
           *,
           envios:envio_id(descricao, unidade:unidades(nome))
         `)
-        .eq('usuario_id', auth.user.id)
+        .eq('usuario_id', user.id)
         .order('created_at', { ascending: false });
       
-      setMovimentos(movs || []);
+      if (movError) throw movError;
+
+      const transactions = movs || [];
+      const calculatedBalance = transactions.reduce((acc, mov) => {
+        // Assume quantidade positiva; tipo define se adiciona ou subtrai
+        return mov.tipo === 'CREDITO' ? acc + mov.quantidade : acc - mov.quantidade;
+      }, 0);
+
+      setSaldo(calculatedBalance);
+      setMovimentos(transactions);
     } catch (err) {
       console.error("Erro ao carregar carteira:", err);
     } finally {
@@ -49,23 +52,20 @@ const Wallet: React.FC = () => {
       if (!user) return;
       user_id = user.id;
 
-      // Carga inicial
       fetchData();
 
-      // REALTIME: Escuta atualizações na tabela 'usuarios' para o saldo específico deste usuário
+      // REALTIME: Escuta inserções na tabela movimentos_credito para atualizar o saldo instantaneamente
       const channel = supabase
-        .channel('user-credits')
+        .channel(`wallet-realtime-${user_id}`)
         .on(
           'postgres_changes', 
           { 
-            event: 'UPDATE', 
+            event: 'INSERT', 
             schema: 'public', 
-            table: 'usuarios', 
-            filter: `id=eq.${user_id}` 
+            table: 'movimentos_credito', 
+            filter: `usuario_id=eq.${user_id}` 
           },
-          (payload) => { 
-            setSaldo(payload.new.creditos); 
-            // Recarrega o extrato também quando o saldo muda
+          () => {
             fetchData();
           }
         )
@@ -76,7 +76,7 @@ const Wallet: React.FC = () => {
 
     const channelPromise = setupRealtime();
     
-    // Suporte ao evento customizado para compatibilidade legada se necessário
+    // Listener para o evento customizado disparado pelo MyShipments.tsx
     window.addEventListener('balanceUpdated', fetchData);
 
     return () => { 
@@ -105,9 +105,9 @@ const Wallet: React.FC = () => {
           <div className="absolute top-0 right-0 p-4 opacity-10">
             <Coins size={120} />
           </div>
-          <p className="text-white/70 font-bold uppercase tracking-widest text-[10px] mb-2">Seu Saldo Atual</p>
+          <p className="text-white/70 font-bold uppercase tracking-widest text-[10px] mb-2">Seu Saldo Consolidado</p>
           <h3 className="text-7xl font-black tracking-tighter">{saldo}</h3>
-          <p className="mt-4 text-xs font-medium text-white/80">MOVE disponíveis</p>
+          <p className="mt-4 text-xs font-medium text-white/80">MOVE acumulados</p>
         </div>
 
         <div className="lg:col-span-2 bg-white rounded-3xl p-8 border border-gray-100 flex flex-col justify-center space-y-6 shadow-sm">
@@ -122,12 +122,12 @@ const Wallet: React.FC = () => {
             <div className="w-10 h-10 bg-red-50 text-red-600 rounded-xl flex items-center justify-center shrink-0"><ArrowDownLeft size={20} /></div>
             <div>
               <h4 className="font-bold text-gray-900 text-sm">Utilize MOVE solicitando</h4>
-              <p className="text-xs text-gray-500">Cada carona de volume que você utiliza de um parceiro consome 1 MOVE.</p>
+              <p className="text-xs text-gray-500">Cada carona que você utiliza consome 1 MOVE do seu saldo.</p>
             </div>
           </div>
           <div className="pt-2 bg-gray-50 p-4 rounded-xl flex items-center gap-3 text-xs text-gray-600">
             <Info size={16} className="text-beirario" />
-            <span>O sistema MOVE equilibra o ecossistema e garante a reciprocidade entre os parceiros.</span>
+            <span>O saldo MOVE é baseado na reciprocidade e colaboração entre parceiros Beira Rio.</span>
           </div>
         </div>
       </div>
@@ -135,7 +135,7 @@ const Wallet: React.FC = () => {
       <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm">
         <div className="px-6 py-5 border-b border-gray-50 flex items-center gap-2">
           <TrendingUp size={18} className="text-gray-400" />
-          <h3 className="font-bold text-gray-900">Extrato de Movimentação</h3>
+          <h3 className="font-bold text-gray-900">Extrato Consolidado</h3>
         </div>
         <div className="divide-y divide-gray-50">
           {movimentos.length === 0 ? (
@@ -148,10 +148,10 @@ const Wallet: React.FC = () => {
                     {mov.tipo === 'CREDITO' ? <ArrowUpRight size={20} /> : <ArrowDownLeft size={20} />}
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-gray-900">{mov.envios?.descricao || 'Carga Inicial Mobirio'}</p>
+                    <p className="text-sm font-bold text-gray-900">{mov.envios?.descricao || 'Carga Inicial/Bonus Mobirio'}</p>
                     <p className="text-[10px] text-gray-400 flex items-center gap-1 font-medium">
                       <Calendar size={10} /> {new Date(mov.created_at).toLocaleDateString('pt-BR')} 
-                      {mov.envios?.unidade && ` • Destino: ${mov.envios.unidade.nome}`}
+                      {mov.envios?.unidade && ` • Unidade: ${mov.envios.unidade.nome}`}
                     </p>
                   </div>
                 </div>

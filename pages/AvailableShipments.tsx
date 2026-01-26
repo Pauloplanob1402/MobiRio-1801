@@ -14,8 +14,8 @@ const AvailableShipments: React.FC = () => {
       const user = auth.user;
       if (!user) return;
 
-      // QUERY SIMPLIFICADA: Reset para evitar Erro 400. 
-      // Buscamos os dados base e as relações de forma direta.
+      // QUERY LIMPA: Apenas status disponível e fornecedor nulo.
+      // Removidos filtros de unidade ou setor para garantir visibilidade total da rede.
       const { data, error } = await supabase
         .from('envios')
         .select(`
@@ -24,15 +24,14 @@ const AvailableShipments: React.FC = () => {
           unidade:unidades(nome)
         `)
         .eq('status', 'disponivel')
+        .is('fornecedor_id', null)
+        .neq('solicitante_id', user.id) // Não ver as próprias caronas
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-
-      // Filtro de visibilidade apenas no mapeamento para garantir que a query base funcione
-      const filteredData = (data || []).filter(item => item.solicitante_id !== user.id);
-      setEnvios(filteredData);
+      setEnvios(data || []);
     } catch (err) {
-      console.error("Erro na comunicação (Status 400?):", err);
+      console.error("Erro ao buscar caronas disponíveis:", err);
     } finally {
       setLoading(false);
     }
@@ -41,9 +40,9 @@ const AvailableShipments: React.FC = () => {
   useEffect(() => {
     fetchAvailable();
 
-    // REALTIME: Subscrição direta na tabela 'envios'
+    // REALTIME ATIVO: Escutando inserções e mudanças na tabela envios
     const channel = supabase
-      .channel('realtime-available-global')
+      .channel('public-shipments')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'envios' },
@@ -77,10 +76,10 @@ const AvailableShipments: React.FC = () => {
 
       if (error) throw error;
       
-      alert('Carona aceita com sucesso!');
+      alert('Carona aceita! O volume aparecerá em "Minhas Atividades".');
       fetchAvailable();
     } catch (err: any) {
-      alert('Erro ao processar: ' + err.message);
+      alert('Erro ao aceitar carona: ' + err.message);
     } finally {
       setProcessingId(null);
     }
