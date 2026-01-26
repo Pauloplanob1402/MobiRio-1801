@@ -13,26 +13,18 @@ const AvailableShipments: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // QUERY DE LISTAGEM: Filtro simplificado apenas por status 'disponivel'.
-      // Removemos qualquer restrição de fornecedor_id ou unidade que possa ocultar registros.
-      // Mantemos o neq(solicitante_id) apenas para o usuário não aceitar a própria carona.
+      // QUERY DE LISTAGEM: Filtro simplificado conforme solicitado.
+      // O Usuário B deve ver a carona do Usuário A se o status for 'disponivel'.
       const { data, error } = await supabase
         .from('envios')
         .select(`
-          id,
-          descricao,
-          created_at,
-          status,
-          solicitante_id,
-          solicitante:usuarios!solicitante_id(
-            nome,
-            endereco,
-            telefone
-          ),
-          unidade:unidades(nome)
+          *,
+          solicitante:usuarios!solicitante_id(nome, endereco, telefone),
+          unidade:unidades!unidade_id(nome)
         `)
         .eq('status', 'disponivel')
-        .neq('solicitante_id', user.id)
+        .is('fornecedor_id', null)
+        .neq('solicitante_id', user.id) // Não ver as próprias caronas
         .order('created_at', { ascending: false });
       
       if (error) throw error;
@@ -47,16 +39,12 @@ const AvailableShipments: React.FC = () => {
   useEffect(() => {
     fetchAvailable();
 
-    // REALTIME ATIVO: Escutando mudanças na tabela envios para atualização instantânea
+    // REALTIME: Escuta mudanças na tabela 'envios' para atualizar a lista sem F5
     const channel = supabase
-      .channel('schema-db-changes')
+      .channel('envios-changes')
       .on(
         'postgres_changes',
-        {
-          event: '*', // Escuta INSERT, UPDATE e DELETE
-          schema: 'public',
-          table: 'envios',
-        },
+        { event: '*', schema: 'public', table: 'envios' },
         () => {
           fetchAvailable();
         }

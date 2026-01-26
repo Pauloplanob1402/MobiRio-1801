@@ -5,7 +5,7 @@ import { MovimentoCredito } from '../types';
 import { Coins, ArrowUpRight, ArrowDownLeft, Calendar, Info, TrendingUp } from 'lucide-react';
 
 const Wallet: React.FC = () => {
-  const [saldo, setSaldo] = useState(12);
+  const [saldo, setSaldo] = useState(0);
   const [movimentos, setMovimentos] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -42,9 +42,47 @@ const Wallet: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    fetchData();
+    let user_id: string;
+    
+    const setupRealtime = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      user_id = user.id;
+
+      // Carga inicial
+      fetchData();
+
+      // REALTIME: Escuta atualizações na tabela 'usuarios' para o saldo específico deste usuário
+      const channel = supabase
+        .channel('user-credits')
+        .on(
+          'postgres_changes', 
+          { 
+            event: 'UPDATE', 
+            schema: 'public', 
+            table: 'usuarios', 
+            filter: `id=eq.${user_id}` 
+          },
+          (payload) => { 
+            setSaldo(payload.new.creditos); 
+            // Recarrega o extrato também quando o saldo muda
+            fetchData();
+          }
+        )
+        .subscribe();
+      
+      return channel;
+    };
+
+    const channelPromise = setupRealtime();
+    
+    // Suporte ao evento customizado para compatibilidade legada se necessário
     window.addEventListener('balanceUpdated', fetchData);
-    return () => window.removeEventListener('balanceUpdated', fetchData);
+
+    return () => { 
+      window.removeEventListener('balanceUpdated', fetchData);
+      channelPromise.then(c => c && supabase.removeChannel(c)); 
+    };
   }, [fetchData]);
 
   if (loading) return (

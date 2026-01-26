@@ -74,6 +74,7 @@ const MyShipments: React.FC = () => {
     setProcessingId(envioId);
     try {
       // CONFIRMAÇÃO: Uso da função RPC rpc_confirmar_entrega para transação atômica
+      // Passando o ID do envio e o ID do motorista (usuário logado)
       const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
         p_envio_id: envioId,
         p_driver_user_id: auth.user.id
@@ -85,9 +86,8 @@ const MyShipments: React.FC = () => {
       if (result && result.success === false) {
         alert(result.message);
       } else {
-        // Notifica outros componentes da mudança de saldo
-        window.dispatchEvent(new CustomEvent('balanceUpdated'));
-        alert("Entrega confirmada com sucesso!");
+        alert("Entrega confirmada! Saldo atualizado.");
+        // O Realtime do componente Wallet cuidará de atualizar o saldo na tela
         fetchData();
       }
     } catch (err: any) {
