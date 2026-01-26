@@ -1,67 +1,63 @@
 
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Envio } from '../types';
-import { Package, Truck, Building2, MapPin, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Package, Truck, Building2, MapPin, CheckCircle2, Phone } from 'lucide-react';
 
 const AvailableShipments: React.FC = () => {
   const [envios, setEnvios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState(false);
+
+  const fetchAvailable = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Busca envios DISPONÍVEIS onde o fornecedor é NULL e o solicitante NÃO é o usuário logado
+      const { data, error } = await supabase
+        .from('envios')
+        .select(`
+          *,
+          solicitante:usuarios!solicitante_id(nome, endereco, telefone),
+          unidade:unidades!unidade_id(nome)
+        `)
+        .eq('status', 'disponivel')
+        .is('fornecedor_id', null)
+        .neq('solicitante_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setEnvios(data || []);
+    } catch (err) {
+      console.error("Erro ao buscar caronas:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchEnvios = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        setUserId(user.id);
-
-        // REGRA: Mostra envios 'disponivel' que NÃO foram solicitados pelo usuário logado
-        const { data } = await supabase
-          .from('envios')
-          .select(`
-            *,
-            fornecedor:fornecedores!fornecedor_id(nome_fantasia, endereco),
-            unidade:unidades!unidade_id(nome)
-          `)
-          .eq('status', 'disponivel')
-          .neq('solicitante_id', user.id) // Crucial: não ver seus próprios pedidos
-          .order('created_at', { ascending: false });
-        
-        setEnvios(data || []);
-      } catch (err) {
-        console.error("Erro ao buscar caronas:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEnvios();
+    fetchAvailable();
   }, []);
 
   const handleAccept = async (envioId: string) => {
-    if (!userId) return;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
     setProcessingId(envioId);
-
     try {
       const { error } = await supabase
         .from('envios')
         .update({
-          status: 'aceito',
-          aceito_por: userId,
+          fornecedor_id: user.id, // O usuário logado assume o transporte como fornecedor
+          status: 'em_transito',
+          aceito_por: user.id,
           aceito_em: new Date().toISOString()
         })
-        .eq('id', envioId)
-        .eq('status', 'disponivel');
+        .eq('id', envioId);
 
       if (error) throw error;
-
-      // Sucesso: Remove o card da lista e mostra feedback
-      setEnvios(prev => prev.filter(e => e.id !== envioId));
-      setShowToast(true);
-      setTimeout(() => setShowToast(false), 3000);
+      alert('Carona aceita! O volume agora está sob sua responsabilidade.');
+      fetchAvailable();
     } catch (err: any) {
       alert('Erro ao aceitar carona: ' + err.message);
     } finally {
@@ -76,20 +72,10 @@ const AvailableShipments: React.FC = () => {
   );
 
   return (
-    <div className="space-y-8 font-sans relative">
-      {/* Toast Simples */}
-      {showToast && (
-        <div className="fixed top-20 right-6 z-50 bg-green-600 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300">
-          <CheckCircle2 size={20} />
-          <span className="font-bold">Carona aceita com sucesso!</span>
-        </div>
-      )}
-
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-gray-900 tracking-tight">Caronas Disponíveis</h2>
-          <p className="text-gray-500 mt-1">Veja volumes de outros parceiros aguardando transporte.</p>
-        </div>
+    <div className="space-y-8 font-sans">
+      <div>
+        <h2 className="text-3xl font-black text-gray-900 tracking-tight">Caronas Disponíveis</h2>
+        <p className="text-gray-500 mt-1">Ajude outros parceiros transportando volumes em sua rota.</p>
       </div>
 
       {envios.length === 0 ? (
@@ -101,38 +87,40 @@ const AvailableShipments: React.FC = () => {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {envios.map((envio) => (
-            <div key={envio.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden hover:shadow-lg transition-all flex flex-col group">
-              <div className="p-6 flex-1">
-                <div className="flex items-start justify-between mb-4">
-                  <div className="w-12 h-12 bg-gray-50 group-hover:bg-beirario-light group-hover:text-beirario rounded-xl flex items-center justify-center transition-colors">
-                    <Package size={24} />
+            <div key={envio.id} className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-all">
+              <div className="p-6 flex-1 space-y-4">
+                <div className="flex justify-between items-start">
+                  <div className="w-10 h-10 bg-gray-50 text-gray-400 rounded-lg flex items-center justify-center">
+                    <Package size={20} />
                   </div>
-                  <div className="text-right">
-                    <p className="text-[9px] text-gray-400 font-bold uppercase tracking-wider">Publicado em</p>
-                    <p className="text-[10px] font-bold text-gray-900">{new Date(envio.created_at).toLocaleDateString('pt-BR')}</p>
-                  </div>
+                  <span className="text-[10px] font-bold text-gray-400 uppercase">{new Date(envio.created_at).toLocaleDateString('pt-BR')}</span>
                 </div>
-                
-                <h4 className="font-bold text-gray-900 mb-2 line-clamp-2">{envio.fornecedor?.nome_fantasia || 'Remetente Parceiro'}</h4>
-                <p className="text-xs text-gray-500 mb-6 italic">"{envio.descricao}"</p>
-                
-                <div className="space-y-4 pt-4 border-t border-gray-50">
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center shrink-0 mt-0.5">
-                      <MapPin size={12} />
-                    </div>
+
+                <div>
+                  <h4 className="font-bold text-gray-900 text-sm uppercase tracking-tight line-clamp-1">{envio.solicitante?.nome}</h4>
+                  <p className="text-xs text-gray-500 italic mt-1">"{envio.descricao}"</p>
+                </div>
+
+                <div className="space-y-3 pt-3 border-t border-gray-50">
+                  <div className="flex items-start gap-2">
+                    <MapPin size={14} className="text-orange-500 mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Origem (Retirada)</p>
-                      <p className="text-[11px] font-semibold text-gray-700">{envio.fornecedor?.endereco || 'Verificar com remetente'}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Origem (Retirada)</p>
+                      <p className="text-xs font-medium text-gray-700">{envio.solicitante?.endereco}</p>
                     </div>
                   </div>
-                  <div className="flex items-start gap-3">
-                    <div className="w-6 h-6 rounded-full bg-beirario-light text-beirario flex items-center justify-center shrink-0 mt-0.5">
-                      <Building2 size={12} />
-                    </div>
+                  <div className="flex items-start gap-2">
+                    <Building2 size={14} className="text-beirario mt-0.5 shrink-0" />
                     <div>
-                      <p className="text-[9px] text-gray-400 font-bold uppercase tracking-widest">Destino Beira Rio</p>
-                      <p className="text-[11px] font-semibold text-gray-700">{envio.unidade?.nome}</p>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Destino (Entrega)</p>
+                      <p className="text-xs font-medium text-gray-700">{envio.unidade?.nome}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <Phone size={14} className="text-gray-400 mt-0.5 shrink-0" />
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase">Contato</p>
+                      <p className="text-xs font-medium text-gray-700">{envio.solicitante?.telefone}</p>
                     </div>
                   </div>
                 </div>
@@ -142,7 +130,7 @@ const AvailableShipments: React.FC = () => {
                 <button
                   onClick={() => handleAccept(envio.id)}
                   disabled={processingId === envio.id}
-                  className="w-full bg-beirario hover:bg-beirario-dark text-white font-bold py-3 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 active:scale-95 shadow-sm"
+                  className="w-full bg-beirario hover:bg-beirario-dark text-white font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-all disabled:opacity-50"
                 >
                   {processingId === envio.id ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />

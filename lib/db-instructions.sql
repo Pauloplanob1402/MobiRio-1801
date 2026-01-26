@@ -1,67 +1,60 @@
 
--- 1. Garante que a tabela 'usuarios' tenha a coluna 'creditos'
-ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS creditos INTEGER DEFAULT 0;
-
--- 2. Adiciona colunas fiscais e de localização na tabela 'usuarios'
+-- 1. Garante que a tabela 'usuarios' tenha as colunas necessárias
+ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS creditos INTEGER DEFAULT 12;
 ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS cnpj TEXT;
 ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS endereco TEXT;
+ALTER TABLE IF EXISTS usuarios ADD COLUMN IF NOT EXISTS telefone TEXT;
+
+-- 2. Garante que a tabela 'fornecedores' tenha as colunas necessárias
+ALTER TABLE IF EXISTS fornecedores ADD COLUMN IF NOT EXISTS creditos INTEGER DEFAULT 12;
+ALTER TABLE IF EXISTS fornecedores ADD COLUMN IF NOT EXISTS telefone TEXT;
+ALTER TABLE IF EXISTS fornecedores ADD COLUMN IF NOT EXISTS cnpj TEXT;
 
 -- 3. Garante que a tabela 'envios' tenha a coluna 'solicitante_id'
 ALTER TABLE IF EXISTS envios ADD COLUMN IF NOT EXISTS solicitante_id UUID REFERENCES auth.users(id);
 
 -- 4. Função RPC Definitiva para Confirmar Entrega
+-- Transfere 1 MOVE do Solicitante para o Entregador
 CREATE OR REPLACE FUNCTION rpc_confirmar_entrega(p_envio_id UUID, p_driver_user_id UUID)
 RETURNS JSON AS $$
 DECLARE
     v_solicitante_id UUID;
-    v_fornecedor_solicitante_id UUID;
-    v_fornecedor_driver_id UUID;
     v_saldo_solicitante INTEGER;
+    v_fornecedor_driver_id UUID;
 BEGIN
-    -- 1. IDENTIFICAR solicitante e seu saldo atual
-    SELECT solicitante_id, fornecedor_id INTO v_solicitante_id, v_fornecedor_solicitante_id 
-    FROM envios WHERE id = p_envio_id;
-
-    -- Fallback para envios antigos sem solicitante_id direto
-    IF v_solicitante_id IS NULL AND v_fornecedor_solicitante_id IS NOT NULL THEN
-        SELECT id INTO v_solicitante_id FROM usuarios WHERE fornecedor_id = v_fornecedor_solicitante_id LIMIT 1;
-    END IF;
+    -- 1. Identificar o solicitante do envio
+    SELECT solicitante_id INTO v_solicitante_id FROM envios WHERE id = p_envio_id;
 
     IF v_solicitante_id IS NULL THEN
         RETURN json_build_object('success', false, 'message', 'Erro: Solicitante não identificado.');
     END IF;
 
-    -- 2. VERIFICAR SALDO DO SOLICITANTE
+    -- 2. Verificar saldo do solicitante (tabela usuarios)
     SELECT creditos INTO v_saldo_solicitante FROM usuarios WHERE id = v_solicitante_id;
 
     IF v_saldo_solicitante < 1 THEN
-        RETURN json_build_object('success', false, 'message', 'O remetente da carga não possui saldo MOVE suficiente para completar a transação.');
+        RETURN json_build_object('success', false, 'message', 'O remetente não possui créditos MOVE suficientes.');
     END IF;
 
-    -- 3. IDENTIFICAR fornecedor do motorista para logs
-    SELECT fornecedor_id INTO v_fornecedor_driver_id FROM usuarios WHERE id = p_driver_user_id;
-
-    -- 4. PROCESSAR TRANSAÇÃO ATÔMICA
-    -- A) Debitar solicitante
+    -- 3. Processar Transação
+    -- Debitar Solicitante
     UPDATE usuarios SET creditos = creditos - 1 WHERE id = v_solicitante_id;
-    
-    -- B) Creditar entregador
+    -- Creditar Entregador
     UPDATE usuarios SET creditos = creditos + 1 WHERE id = p_driver_user_id;
+    
+    -- Sincronizar com tabela fornecedores (se houver vínculo)
+    UPDATE fornecedores f SET creditos = u.creditos FROM usuarios u WHERE f.id = u.id AND u.id IN (v_solicitante_id, p_driver_user_id);
 
-    -- C) Histórico Débito (Solicitante)
-    INSERT INTO movimentos_credito (usuario_id, envio_id, quantidade, tipo, fornecedor_id)
-    VALUES (v_solicitante_id, p_envio_id, 1, 'DEBITO', v_fornecedor_solicitante_id);
+    -- Registrar Movimentos
+    INSERT INTO movimentos_credito (usuario_id, envio_id, quantidade, tipo)
+    VALUES (v_solicitante_id, p_envio_id, 1, 'DEBITO');
+    
+    INSERT INTO movimentos_credito (usuario_id, envio_id, quantidade, tipo)
+    VALUES (p_driver_user_id, p_envio_id, 1, 'CREDITO');
 
-    -- D) Histórico Crédito (Entregador)
-    INSERT INTO movimentos_credito (usuario_id, envio_id, quantidade, tipo, fornecedor_id)
-    VALUES (p_driver_user_id, p_envio_id, 1, 'CREDITO', v_fornecedor_driver_id);
+    -- 4. Finalizar Envio
+    UPDATE envios SET status = 'entregue' WHERE id = p_envio_id;
 
-    -- 5. FINALIZAR ENVIO
-    UPDATE envios 
-    SET status = 'entregue', 
-        aceito_por = p_driver_user_id 
-    WHERE id = p_envio_id;
-
-    RETURN json_build_object('success', true, 'message', 'Entrega confirmada com sucesso! Você ganhou 1 MOVE.');
+    RETURN json_build_object('success', true, 'message', 'Entrega concluída! +1 MOVE creditado.');
 END;
 $$ LANGUAGE plpgsql;
