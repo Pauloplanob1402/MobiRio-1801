@@ -20,7 +20,6 @@ RETURNS JSON AS $$
 DECLARE
     v_solicitante_id UUID;
     v_saldo_solicitante INTEGER;
-    v_fornecedor_driver_id UUID;
 BEGIN
     -- 1. Identificar o solicitante do envio
     SELECT solicitante_id INTO v_solicitante_id FROM envios WHERE id = p_envio_id;
@@ -29,23 +28,23 @@ BEGIN
         RETURN json_build_object('success', false, 'message', 'Erro: Solicitante não identificado.');
     END IF;
 
-    -- 2. Verificar saldo do solicitante (tabela usuarios)
+    -- 2. Verificar saldo do solicitante na tabela 'usuarios'
     SELECT creditos INTO v_saldo_solicitante FROM usuarios WHERE id = v_solicitante_id;
 
     IF v_saldo_solicitante < 1 THEN
         RETURN json_build_object('success', false, 'message', 'O remetente não possui créditos MOVE suficientes.');
     END IF;
 
-    -- 3. Processar Transação
+    -- 3. Processar Transação (Foco exclusivo na tabela usuarios)
     -- Debitar Solicitante
     UPDATE usuarios SET creditos = creditos - 1 WHERE id = v_solicitante_id;
     -- Creditar Entregador
     UPDATE usuarios SET creditos = creditos + 1 WHERE id = p_driver_user_id;
     
-    -- Sincronizar com tabela fornecedores (se houver vínculo)
+    -- Sincronizar com tabela fornecedores apenas se o registro existir (opcional)
     UPDATE fornecedores f SET creditos = u.creditos FROM usuarios u WHERE f.id = u.id AND u.id IN (v_solicitante_id, p_driver_user_id);
 
-    -- Registrar Movimentos
+    -- Registrar Movimentos no Histórico
     INSERT INTO movimentos_credito (usuario_id, envio_id, quantidade, tipo)
     VALUES (v_solicitante_id, p_envio_id, 1, 'DEBITO');
     

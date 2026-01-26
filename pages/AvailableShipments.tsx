@@ -13,7 +13,7 @@ const AvailableShipments: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // REGRA: Mostra solicitações de OUTROS usuários esperando transporte
+      // VISIBILIDADE TOTAL: Filtrando apenas por status 'disponivel' e excluindo o próprio solicitante
       const { data, error } = await supabase
         .from('envios')
         .select(`
@@ -29,7 +29,6 @@ const AvailableShipments: React.FC = () => {
           unidade_destino:unidades!unidade_id(nome)
         `)
         .eq('status', 'disponivel')
-        .is('fornecedor_id', null)
         .neq('solicitante_id', user.id)
         .order('created_at', { ascending: false });
       
@@ -52,7 +51,7 @@ const AvailableShipments: React.FC = () => {
     
     setProcessingId(envioId);
     try {
-      // REGRA: Ao aceitar, o status muda para 'em_transito' e o fornecedor_id vira o usuário logado
+      // Ao aceitar, o usuário logado assume a carona. O status muda para 'em_transito'.
       const { error } = await supabase
         .from('envios')
         .update({
@@ -62,7 +61,7 @@ const AvailableShipments: React.FC = () => {
           aceito_em: new Date().toISOString()
         })
         .eq('id', envioId)
-        .is('fornecedor_id', null); // Garantia de que ainda está disponível
+        .eq('status', 'disponivel');
 
       if (error) throw error;
       alert('Carona aceita! O volume agora está sob sua responsabilidade em "Minhas Atividades".');

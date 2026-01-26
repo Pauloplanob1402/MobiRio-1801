@@ -30,9 +30,10 @@ const App: React.FC = () => {
       if (!profile) {
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
         
-        // Criar registro na tabela 'usuarios' com 12 créditos iniciais
+        // Criar registro na tabela 'usuarios' com 12 créditos iniciais e fornecedor_id vinculado
         await supabase.from('usuarios').insert({
           id: user.id,
+          fornecedor_id: user.id,
           nome: displayName,
           email: user.email,
           telefone: '(00) 00000-0000',
@@ -46,22 +47,34 @@ const App: React.FC = () => {
           tipo: 'CREDITO',
           envio_id: null
         });
-      } else if (profile.creditos === null || profile.creditos === 0) {
-        // Correção para usuários existentes que ficaram sem saldo inicial
-        const { data: movements } = await supabase
-          .from('movimentos_credito')
-          .select('id')
-          .eq('usuario_id', user.id)
-          .limit(1);
+      } else {
+        // Correção de dados para perfis existentes (Garante fornecedor_id e saldo inicial)
+        let updates: any = {};
         
-        if (!movements || movements.length === 0) {
-          await supabase.from('usuarios').update({ creditos: 12 }).eq('id', user.id);
-          await supabase.from('movimentos_credito').insert({
-            usuario_id: user.id,
-            quantidade: 12,
-            tipo: 'CREDITO',
-            envio_id: null
-          });
+        if (profile.fornecedor_id === null) {
+          updates.fornecedor_id = user.id;
+        }
+
+        if (profile.creditos === null || profile.creditos === 0) {
+          const { data: movements } = await supabase
+            .from('movimentos_credito')
+            .select('id')
+            .eq('usuario_id', user.id)
+            .limit(1);
+          
+          if (!movements || movements.length === 0) {
+            updates.creditos = 12;
+            await supabase.from('movimentos_credito').insert({
+              usuario_id: user.id,
+              quantidade: 12,
+              tipo: 'CREDITO',
+              envio_id: null
+            });
+          }
+        }
+
+        if (Object.keys(updates).length > 0) {
+          await supabase.from('usuarios').update(updates).eq('id', user.id);
         }
       }
     } catch (err: any) {
