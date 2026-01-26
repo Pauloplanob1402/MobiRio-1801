@@ -18,25 +18,25 @@ const MyShipments: React.FC = () => {
       const user = auth.user;
       if (!user) return;
 
-      // MEUS ENVIOS: Filtro correto onde solicitante_id é igual ao ID do usuário logado
+      // MEUS ENVIOS: Query simplificada para evitar 400
       const { data: dataSolicitados } = await supabase
         .from('envios')
         .select(`
           *,
           unidade:unidades(nome),
-          fornecedor:usuarios!fornecedor_id(nome, telefone)
+          fornecedor:usuarios(nome, telefone)
         `)
         .eq('solicitante_id', user.id)
         .order('created_at', { ascending: false });
 
       setSolicitados(dataSolicitados || []);
 
-      // TRANSPORTANDO: Envios aceitos pelo usuário logado
+      // TRANSPORTANDO: Envios onde eu sou o fornecedor
       const { data: dataTransporte } = await supabase
         .from('envios')
         .select(`
           *,
-          solicitante:usuarios!solicitante_id(nome, telefone, endereco),
+          solicitante:usuarios(nome, telefone, endereco),
           unidade:unidades(nome)
         `)
         .eq('fornecedor_id', user.id)
@@ -45,7 +45,7 @@ const MyShipments: React.FC = () => {
 
       setEmTransporte(dataTransporte || []);
     } catch (err) {
-      console.error("Erro ao carregar atividades:", err);
+      console.error("Erro na busca de atividades:", err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -55,40 +55,33 @@ const MyShipments: React.FC = () => {
   useEffect(() => {
     fetchData();
     const channel = supabase
-      .channel('my-activities-realtime')
-      .on(
-        'postgres_changes', 
-        { event: '*', schema: 'public', table: 'envios' }, 
-        () => fetchData()
-      )
+      .channel('my-shipments-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
 
   const handleConfirmDelivery = async (envioId: string) => {
-    const { data: auth } = await supabase.auth.getUser();
-    if (!auth.user) return;
-    
-    if (!window.confirm("Confirmar entrega? Isso gera +1 MOVE para você e debita 1 MOVE do solicitante.")) return;
-
-    setProcessingId(envioId);
     try {
-      // CONFIRMAÇÃO: Uso da função RPC rpc_confirmar_entrega para transação atômica
-      // Passando o ID do envio e o ID do motorista (usuário logado)
+      if (!window.confirm("Confirmar entrega do volume?")) return;
+      
+      setProcessingId(envioId);
+      
+      // Chamada da função RPC no banco para transação de créditos
       const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
         p_envio_id: envioId,
-        p_driver_user_id: auth.user.id
+        p_driver_user_id: (await supabase.auth.getUser()).data.user?.id
       });
 
       if (error) throw error;
       
       const result = data as any;
-      if (result && result.success === false) {
-        alert(result.message);
-      } else {
-        alert("Entrega confirmada! Saldo atualizado.");
-        // O Realtime do componente Wallet cuidará de atualizar o saldo na tela
+      if (result.success) {
+        alert('Entrega confirmada! Saldo MOVE atualizado.');
+        window.dispatchEvent(new CustomEvent('balanceUpdated'));
         fetchData();
+      } else {
+        alert('Erro: ' + result.message);
       }
     } catch (err: any) {
       alert("Erro ao confirmar entrega: " + err.message);
@@ -119,7 +112,7 @@ const MyShipments: React.FC = () => {
         <h3 className="text-xl font-bold text-gray-900 border-l-4 border-beirario pl-4">Caronas que estou transportando</h3>
         <div className="grid gap-4">
           {emTransporte.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-dashed text-center text-gray-400 text-sm">Nenhuma carona em transporte no momento.</div>
+            <div className="bg-white p-12 rounded-2xl border border-dashed text-center text-gray-400 text-sm">Nenhuma carona em transporte.</div>
           ) : (
             emTransporte.map(envio => (
               <div key={envio.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-6 md:items-center">

@@ -18,7 +18,7 @@ const Dashboard: React.FC = () => {
     emTransito: 0,
     concluidos: 0,
   });
-  const [recentEnvios, setRecentEnvios] = useState<Envio[]>([]);
+  const [recentEnvios, setRecentEnvios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -27,12 +27,12 @@ const Dashboard: React.FC = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Busca todos os envios onde o usuário é o SOLICITANTE
+        // Query base sem joins complexos para estabilidade
         const { data: envios, error } = await supabase
           .from('envios')
           .select(`
             *,
-            unidades(nome)
+            unidade:unidades(nome)
           `)
           .eq('solicitante_id', user.id);
 
@@ -49,7 +49,7 @@ const Dashboard: React.FC = () => {
         setStats(counts);
         setRecentEnvios([...safeEnvios].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
       } catch (error) {
-        console.error("Erro ao carregar dados do dashboard:", error);
+        console.error("Erro no Dashboard (Status 400?):", error);
       } finally {
         setLoading(false);
       }
@@ -121,7 +121,7 @@ const Dashboard: React.FC = () => {
                     <div>
                       <p className="font-semibold text-gray-900 truncate max-w-[200px] text-sm">{envio.descricao}</p>
                       <p className="text-[10px] text-gray-400 font-bold uppercase flex items-center gap-1">
-                        <MapPin size={10} /> {(envio.unidades as any)?.nome}
+                        <MapPin size={10} /> {envio.unidade?.nome}
                       </p>
                     </div>
                   </div>

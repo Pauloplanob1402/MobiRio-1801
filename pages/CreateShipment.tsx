@@ -30,8 +30,14 @@ const CreateShipment: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return alert('Sessão expirada. Faça login novamente.');
+    // Obtenção garantida do ID do usuário logado
+    const { data: auth } = await supabase.auth.getUser();
+    const user = auth.user;
+    
+    if (!user) {
+      alert('Sessão expirada. Faça login novamente.');
+      return navigate('/login');
+    }
 
     if (!formData.unidade_id) return alert('Selecione um destino.');
     
@@ -41,8 +47,8 @@ const CreateShipment: React.FC = () => {
       const { error } = await supabase
         .from('envios')
         .insert({
-          solicitante_id: user.id,
-          fornecedor_id: null, // Aguardando aceite
+          solicitante_id: user.id, // VÍNCULO OBRIGATÓRIO
+          fornecedor_id: null,
           descricao: formData.descricao,
           unidade_id: formData.unidade_id,
           status: 'disponivel'

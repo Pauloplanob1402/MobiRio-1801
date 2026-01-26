@@ -5,7 +5,7 @@ import { Envio } from '../types';
 import { Package, Building2, CheckCircle, Search } from 'lucide-react';
 
 const History: React.FC = () => {
-  const [history, setHistory] = useState<Envio[]>([]);
+  const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -15,12 +15,12 @@ const History: React.FC = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        // Busca envios entregues onde o usuário foi o SOLICITANTE
+        // Query simples e segura
         const { data } = await supabase
           .from('envios')
           .select(`
             *,
-            unidades(nome)
+            unidade:unidades(nome)
           `)
           .eq('solicitante_id', user.id)
           .eq('status', 'entregue')
@@ -28,7 +28,7 @@ const History: React.FC = () => {
         
         setHistory(data || []);
       } catch (err) {
-        console.error("Erro ao carregar histórico:", err);
+        console.error("Erro no Histórico (Status 400?):", err);
       } finally {
         setLoading(false);
       }
@@ -39,7 +39,7 @@ const History: React.FC = () => {
 
   const filteredHistory = history.filter(item => 
     item.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (item.unidades as any)?.nome.toLowerCase().includes(searchTerm.toLowerCase())
+    (item.unidade?.nome || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   if (loading) return (
@@ -100,7 +100,7 @@ const History: React.FC = () => {
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
                         <Building2 size={14} className="text-beirario" />
-                        <span>{(item.unidades as any)?.nome}</span>
+                        <span>{item.unidade?.nome || 'Unidade Beira Rio'}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">

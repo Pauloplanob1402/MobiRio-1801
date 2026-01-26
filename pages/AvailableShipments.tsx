@@ -10,27 +10,29 @@ const AvailableShipments: React.FC = () => {
 
   const fetchAvailable = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth.user;
       if (!user) return;
 
-      // QUERY DE LISTAGEM: Filtro simplificado conforme solicitado.
-      // O Usuário B deve ver a carona do Usuário A se o status for 'disponivel'.
+      // QUERY SIMPLIFICADA: Reset para evitar Erro 400. 
+      // Buscamos os dados base e as relações de forma direta.
       const { data, error } = await supabase
         .from('envios')
         .select(`
           *,
-          solicitante:usuarios!solicitante_id(nome, endereco, telefone),
-          unidade:unidades!unidade_id(nome)
+          solicitante:usuarios(nome, endereco, telefone),
+          unidade:unidades(nome)
         `)
         .eq('status', 'disponivel')
-        .is('fornecedor_id', null)
-        .neq('solicitante_id', user.id) // Não ver as próprias caronas
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setEnvios(data || []);
+
+      // Filtro de visibilidade apenas no mapeamento para garantir que a query base funcione
+      const filteredData = (data || []).filter(item => item.solicitante_id !== user.id);
+      setEnvios(filteredData);
     } catch (err) {
-      console.error("Erro ao buscar caronas disponíveis:", err);
+      console.error("Erro na comunicação (Status 400?):", err);
     } finally {
       setLoading(false);
     }
@@ -39,9 +41,9 @@ const AvailableShipments: React.FC = () => {
   useEffect(() => {
     fetchAvailable();
 
-    // REALTIME: Escuta mudanças na tabela 'envios' para atualizar a lista sem F5
+    // REALTIME: Subscrição direta na tabela 'envios'
     const channel = supabase
-      .channel('envios-changes')
+      .channel('realtime-available-global')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'envios' },
@@ -75,10 +77,10 @@ const AvailableShipments: React.FC = () => {
 
       if (error) throw error;
       
-      alert('Carona aceita! O volume aparecerá em "Minhas Atividades".');
+      alert('Carona aceita com sucesso!');
       fetchAvailable();
     } catch (err: any) {
-      alert('Erro ao aceitar carona: ' + err.message);
+      alert('Erro ao processar: ' + err.message);
     } finally {
       setProcessingId(null);
     }
@@ -119,7 +121,7 @@ const AvailableShipments: React.FC = () => {
                 </div>
 
                 <div>
-                  <h4 className="font-bold text-gray-900 text-sm uppercase tracking-tight line-clamp-1">SOLICITANTE: {envio.solicitante?.nome}</h4>
+                  <h4 className="font-bold text-gray-900 text-sm uppercase tracking-tight line-clamp-1">SOLICITANTE: {envio.solicitante?.nome || 'Não informado'}</h4>
                   <p className="text-xs text-gray-500 italic mt-1 font-medium">DESCRIÇÃO: "{envio.descricao}"</p>
                 </div>
 
@@ -135,14 +137,14 @@ const AvailableShipments: React.FC = () => {
                     <Building2 size={14} className="text-beirario mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">DESTINO</p>
-                      <p className="text-xs font-semibold text-gray-700">{envio.unidade?.nome}</p>
+                      <p className="text-xs font-semibold text-gray-700">{envio.unidade?.nome || 'Unidade Beira Rio'}</p>
                     </div>
                   </div>
                   <div className="flex items-start gap-2">
                     <Phone size={14} className="text-gray-400 mt-0.5 shrink-0" />
                     <div>
                       <p className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">TELEFONE</p>
-                      <p className="text-xs font-semibold text-gray-700">{envio.solicitante?.telefone}</p>
+                      <p className="text-xs font-semibold text-gray-700">{envio.solicitante?.telefone || '-'}</p>
                     </div>
                   </div>
                 </div>
