@@ -18,22 +18,19 @@ const MyShipments: React.FC = () => {
       const user = auth.user;
       if (!user) return;
 
-      // 1. Meus Envios Solicitados (onde eu sou o solicitante)
-      const { data: dataSolicitados, error: errSolicitados } = await supabase
+      const { data: dataSolicitados } = await supabase
         .from('envios')
         .select(`
           *,
           unidade:unidades!unidade_id(nome),
-          fornecedor:fornecedores!fornecedor_id(nome_fantasia, telefone)
+          fornecedor:usuarios!fornecedor_id(nome, telefone)
         `)
         .eq('solicitante_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (errSolicitados) throw errSolicitados;
       setSolicitados(dataSolicitados || []);
 
-      // 2. Caronas que estou transportando (fornecedor_id = meu id E status='em_transito')
-      const { data: dataTransporte, error: errTransporte } = await supabase
+      const { data: dataTransporte } = await supabase
         .from('envios')
         .select(`
           *,
@@ -44,11 +41,9 @@ const MyShipments: React.FC = () => {
         .eq('status', 'em_transito')
         .order('created_at', { ascending: false });
 
-      if (errTransporte) throw errTransporte;
       setEmTransporte(dataTransporte || []);
-
     } catch (err) {
-      console.error("Erro ao carregar atividades:", err);
+      console.error(err);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -57,33 +52,37 @@ const MyShipments: React.FC = () => {
 
   useEffect(() => {
     fetchData();
+    const channel = supabase.channel('realtime-my').on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchData()).subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
 
   const handleConfirmDelivery = async (envioId: string) => {
     const { data: auth } = await supabase.auth.getUser();
     if (!auth.user) return;
     
-    if (!window.confirm("Confirmar entrega do volume? Isso gerará +1 MOVE para você e descontará do solicitante.")) return;
+    if (!window.confirm("Confirmar entrega? Isso gera +1 MOVE para você e debita 1 MOVE do solicitante.")) return;
 
     setProcessingId(envioId);
     try {
+      // O RPC garante a transação atômica entre as contas na tabela 'usuarios'
       const { data, error } = await supabase.rpc('rpc_confirmar_entrega', {
         p_envio_id: envioId,
         p_driver_user_id: auth.user.id
       });
 
       if (error) throw error;
+      
       const result = data as any;
-
       if (result && result.success === false) {
         alert(result.message);
       } else {
-        alert("Entrega confirmada com sucesso! +1 MOVE adicionado à sua carteira.");
+        // Dispara evento global para atualizar o saldo na Carteira e Header sem F5
         window.dispatchEvent(new CustomEvent('balanceUpdated'));
+        alert("Entrega confirmada! +1 MOVE adicionado.");
         fetchData();
       }
     } catch (err: any) {
-      alert("Erro ao processar confirmação: " + err.message);
+      alert("Erro ao confirmar entrega: " + err.message);
     } finally {
       setProcessingId(null);
     }
@@ -102,49 +101,35 @@ const MyShipments: React.FC = () => {
           <h2 className="text-3xl font-black text-gray-900 tracking-tight">Minhas Atividades</h2>
           <p className="text-gray-500 mt-1">Volumes sob sua responsabilidade e solicitações criadas.</p>
         </div>
-        <button 
-          onClick={fetchData} 
-          disabled={refreshing} 
-          className="flex items-center gap-2 px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-50 transition-all shadow-sm disabled:opacity-50"
-        >
-          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-          {refreshing ? 'Atualizando...' : 'Atualizar'}
+        <button onClick={fetchData} disabled={refreshing} className="p-3 bg-white border border-gray-200 rounded-xl text-gray-400 hover:text-beirario transition-all shadow-sm">
+          <RefreshCw size={20} className={refreshing ? 'animate-spin' : ''} />
         </button>
       </div>
 
-      {/* SEÇÃO 1: TRANSPORTANDO */}
       <section className="space-y-6">
         <h3 className="text-xl font-bold text-gray-900 border-l-4 border-beirario pl-4">Caronas que estou transportando</h3>
         <div className="grid gap-4">
           {emTransporte.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-200 text-center text-gray-400">
-              <Truck size={40} className="mx-auto mb-3 opacity-20" />
-              <p className="text-sm font-medium">Você ainda não está transportando volumes de terceiros.</p>
-            </div>
+            <div className="bg-white p-12 rounded-2xl border border-dashed text-center text-gray-400 text-sm">Nenhuma carona em transporte.</div>
           ) : (
             emTransporte.map(envio => (
-              <div key={envio.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-6 md:items-center hover:shadow-md transition-shadow">
+              <div key={envio.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-6 md:items-center">
                 <div className="w-12 h-12 bg-beirario-light text-beirario rounded-xl flex items-center justify-center shrink-0">
                   <Truck size={24} />
                 </div>
                 <div className="flex-1 space-y-2">
                   <div className="flex justify-between items-start">
-                    <h4 className="font-bold text-gray-900 uppercase text-sm tracking-tight">{envio.solicitante?.nome}</h4>
+                    <h4 className="font-bold text-gray-900 uppercase text-sm">{envio.solicitante?.nome}</h4>
                     <span className="text-[10px] bg-orange-100 text-orange-600 px-2.5 py-1 rounded-full font-black uppercase tracking-wider">Em Trânsito</span>
                   </div>
-                  <p className="text-xs text-gray-500 italic font-medium">"{envio.descricao}"</p>
+                  <p className="text-xs text-gray-500 italic">"{envio.descricao}"</p>
                   <div className="flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-gray-600">
                     <span className="flex items-center gap-1.5"><MapPin size={14} className="text-orange-400" /> <b>RETIRADA:</b> {envio.solicitante?.endereco}</span>
                     <span className="flex items-center gap-1.5"><Building2 size={14} className="text-beirario" /> <b>DESTINO:</b> {envio.unidade?.nome}</span>
-                    <span className="flex items-center gap-1.5 font-bold"><Phone size={14} className="text-gray-400" /> {envio.solicitante?.telefone}</span>
                   </div>
                 </div>
                 <div className="shrink-0">
-                  <button 
-                    onClick={() => handleConfirmDelivery(envio.id)}
-                    disabled={processingId === envio.id}
-                    className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-black py-3.5 px-6 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 shadow-sm transition-all active:scale-95"
-                  >
+                  <button onClick={() => handleConfirmDelivery(envio.id)} disabled={processingId === envio.id} className="w-full md:w-auto bg-green-600 hover:bg-green-700 text-white font-black py-3 px-6 rounded-xl text-[11px] uppercase tracking-widest flex items-center justify-center gap-2 transition-all">
                     {processingId === envio.id ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle size={16} />}
                     Confirmar Entrega
                   </button>
@@ -155,15 +140,11 @@ const MyShipments: React.FC = () => {
         </div>
       </section>
 
-      {/* SEÇÃO 2: SOLICITADOS */}
       <section className="space-y-6">
         <h3 className="text-xl font-bold text-gray-900 border-l-4 border-gray-300 pl-4">Meus Envios Solicitados</h3>
         <div className="grid gap-4">
           {solicitados.length === 0 ? (
-            <div className="bg-white p-12 rounded-2xl border border-dashed border-gray-200 text-center text-gray-400">
-              <Package size={40} className="mx-auto mb-3 opacity-20" />
-              <p className="text-sm font-medium">Você ainda não solicitou caronas.</p>
-            </div>
+            <div className="bg-white p-12 rounded-2xl border border-dashed text-center text-gray-400 text-sm">Você ainda não solicitou caronas.</div>
           ) : (
             solicitados.map(envio => (
               <div key={envio.id} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm flex flex-col md:flex-row gap-6 md:items-center opacity-90 hover:opacity-100 transition-opacity">
@@ -173,21 +154,13 @@ const MyShipments: React.FC = () => {
                 <div className="flex-1 space-y-1">
                   <div className="flex justify-between items-start">
                     <h4 className="font-bold text-gray-900 text-base">{envio.descricao}</h4>
-                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider ${
-                      envio.status === 'disponivel' ? 'bg-gray-100 text-gray-500' : 
-                      envio.status === 'entregue' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'
-                    }`}>
+                    <span className={`text-[10px] px-2.5 py-1 rounded-full font-black uppercase tracking-wider ${envio.status === 'disponivel' ? 'bg-gray-100 text-gray-500' : envio.status === 'entregue' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
                       {envio.status === 'disponivel' ? 'Aguardando Coleta' : envio.status === 'entregue' ? 'Entregue' : 'Em Rota'}
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-x-6 gap-y-2 text-[11px] text-gray-500">
                     <span className="flex items-center gap-1.5 font-bold"><Building2 size={14} /> DESTINO: {envio.unidade?.nome}</span>
-                    {envio.fornecedor && (
-                      <span className="flex items-center gap-1.5 text-blue-600 font-bold uppercase tracking-tighter">
-                        <Truck size={14} /> TRANSPORTADO POR: {envio.fornecedor.nome_fantasia}
-                      </span>
-                    )}
-                    <span className="flex items-center gap-1.5"><Clock size={14} /> {new Date(envio.created_at).toLocaleDateString('pt-BR')}</span>
+                    {envio.fornecedor && <span className="flex items-center gap-1.5 text-blue-600 font-bold uppercase tracking-tighter"><Truck size={14} /> TRANSPORTADO POR: {envio.fornecedor.nome}</span>}
                   </div>
                 </div>
               </div>

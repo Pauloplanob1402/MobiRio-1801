@@ -1,19 +1,20 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { Package, Truck, Building2, MapPin, CheckCircle2, Phone, Calendar } from 'lucide-react';
+import { Package, Truck, Building2, MapPin, CheckCircle2, Phone } from 'lucide-react';
 
 const AvailableShipments: React.FC = () => {
   const [envios, setEnvios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
-  const fetchAvailable = async () => {
+  const fetchAvailable = useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // VISIBILIDADE TOTAL: Filtrando apenas por status 'disponivel' e excluindo o próprio solicitante
+      // QUERY GLOBAL: Removemos qualquer filtro de fornecedor_id. 
+      // O único critério é o status estar 'disponivel' e não ser do próprio usuário.
       const { data, error } = await supabase
         .from('envios')
         .select(`
@@ -21,6 +22,7 @@ const AvailableShipments: React.FC = () => {
           descricao,
           created_at,
           status,
+          solicitante_id,
           solicitante:usuarios!solicitante_id(
             nome,
             endereco,
@@ -39,11 +41,28 @@ const AvailableShipments: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchAvailable();
-  }, []);
+
+    // Configuração do Canal de Tempo Real
+    const channel = supabase
+      .channel('realtime-available')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'envios' },
+        () => {
+          // Atualiza a lista sempre que houver QUALQUER mudança na tabela de envios
+          fetchAvailable();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchAvailable]);
 
   const handleAccept = async (envioId: string) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -51,7 +70,7 @@ const AvailableShipments: React.FC = () => {
     
     setProcessingId(envioId);
     try {
-      // Ao aceitar, o usuário logado assume a carona. O status muda para 'em_transito'.
+      // O motorista é o usuário logado (user.id)
       const { error } = await supabase
         .from('envios')
         .update({
@@ -64,8 +83,10 @@ const AvailableShipments: React.FC = () => {
         .eq('status', 'disponivel');
 
       if (error) throw error;
-      alert('Carona aceita! O volume agora está sob sua responsabilidade em "Minhas Atividades".');
+      
+      // Feedback visual rápido
       fetchAvailable();
+      alert('Carona aceita! O volume aparecerá em "Minhas Atividades".');
     } catch (err: any) {
       alert('Erro ao aceitar carona: ' + err.message);
     } finally {
