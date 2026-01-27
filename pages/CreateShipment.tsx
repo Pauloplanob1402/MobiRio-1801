@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Unidade } from '../types';
-import { Send, CheckCircle, Building2, FileText } from 'lucide-react';
+import { Send, CheckCircle, Building2, FileText, RefreshCw } from 'lucide-react';
 
 const CreateShipment: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -30,7 +30,7 @@ const CreateShipment: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Obtenção garantida do ID do usuário logado
+    // VÍNCULO DE USUÁRIO GARANTIDO: Obtendo o ID do usuário logado
     const { data: auth } = await supabase.auth.getUser();
     const user = auth.user;
     
@@ -39,15 +39,16 @@ const CreateShipment: React.FC = () => {
       return navigate('/login');
     }
 
-    if (!formData.unidade_id) return alert('Selecione um destino.');
+    if (!formData.unidade_id) return alert('Selecione uma unidade de destino.');
     
     setLoading(true);
 
     try {
+      // Inserção com solicitante_id obrigatório vindo do Auth
       const { error } = await supabase
         .from('envios')
         .insert({
-          solicitante_id: user.id, // VÍNCULO OBRIGATÓRIO
+          solicitante_id: user.id, 
           fornecedor_id: null,
           descricao: formData.descricao,
           unidade_id: formData.unidade_id,
@@ -67,36 +68,36 @@ const CreateShipment: React.FC = () => {
 
   if (success) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 text-center">
-        <div className="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6">
-          <CheckCircle size={40} />
+      <div className="flex flex-col items-center justify-center py-32 text-center animate-in zoom-in duration-300">
+        <div className="w-24 h-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mb-6 shadow-inner">
+          <CheckCircle size={48} />
         </div>
-        <h2 className="text-3xl font-bold text-gray-900 mb-2">Solicitação Criada!</h2>
-        <p className="text-gray-500">Aguarde um fornecedor parceiro aceitar sua carona.</p>
+        <h2 className="text-4xl font-black text-gray-900 mb-2 uppercase tracking-tight">Solicitado!</h2>
+        <p className="text-gray-500 font-medium">Sua carona foi publicada na rede Mobirio.</p>
       </div>
     );
   }
 
   return (
-    <div className="max-w-2xl mx-auto font-sans">
-      <div className="mb-8">
-        <h2 className="text-3xl font-extrabold text-gray-900">Solicitar Carona</h2>
-        <p className="text-gray-500 mt-1">Publique um volume para transporte entre unidades.</p>
+    <div className="max-w-2xl mx-auto font-sans p-6">
+      <div className="mb-10">
+        <h2 className="text-4xl font-black text-gray-900 uppercase tracking-tight">Solicitar Carona</h2>
+        <p className="text-gray-500 mt-2 font-medium">Publique um novo volume para transporte colaborativo.</p>
       </div>
 
-      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-8">
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-700 uppercase">Unidade Beira Rio (Destino)</label>
+      <div className="bg-white rounded-[2.5rem] border border-gray-100 shadow-xl p-10">
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="space-y-3">
+            <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Destino (Unidade Beira Rio)</label>
             <div className="relative">
-              <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+              <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-beirario" size={20} />
               <select 
-                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-beirario text-sm appearance-none"
+                className="w-full pl-12 pr-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-beirario/10 focus:border-beirario text-sm appearance-none font-bold text-gray-700"
                 required
                 value={formData.unidade_id}
                 onChange={(e) => setFormData({...formData, unidade_id: e.target.value})}
               >
-                <option value="">Selecione a Unidade</option>
+                <option value="">Selecione a Unidade de Destino</option>
                 {unidades.map(u => (
                   <option key={u.id} value={u.id}>{u.nome}</option>
                 ))}
@@ -104,13 +105,13 @@ const CreateShipment: React.FC = () => {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-gray-700 uppercase">Descrição do Volume</label>
+          <div className="space-y-3">
+            <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Descrição Detalhada</label>
             <div className="relative">
-              <FileText className="absolute left-3 top-3 text-gray-400" size={20} />
+              <FileText className="absolute left-4 top-4 text-beirario" size={20} />
               <textarea 
-                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:border-beirario min-h-[120px] text-sm"
-                placeholder="Ex: Amostras técnicas de couro (3 caixas pequenas)"
+                className="w-full pl-12 pr-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-beirario/10 focus:border-beirario min-h-[150px] text-sm font-medium text-gray-700 leading-relaxed"
+                placeholder="Ex: Amostras de couro, 2 caixas pequenas lacradas. Peso aprox: 3kg."
                 required
                 value={formData.descricao}
                 onChange={(e) => setFormData({...formData, descricao: e.target.value})}
@@ -118,13 +119,21 @@ const CreateShipment: React.FC = () => {
             </div>
           </div>
 
-          <div className="pt-4 flex gap-4">
-            <button type="button" onClick={() => navigate(-1)} className="flex-1 px-6 py-4 border border-gray-200 rounded-xl font-bold text-gray-500 hover:bg-gray-50">
-              Voltar
+          <div className="pt-6 flex flex-col sm:flex-row gap-4">
+            <button 
+              type="button" 
+              onClick={() => navigate(-1)} 
+              className="flex-1 px-8 py-4 border border-gray-200 rounded-2xl font-black uppercase text-xs text-gray-400 hover:bg-gray-50 transition-all"
+            >
+              Cancelar
             </button>
-            <button type="submit" disabled={loading} className="flex-[2] bg-beirario hover:bg-beirario-dark text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2">
-              <Send size={20} />
-              {loading ? 'Processando...' : 'Publicar Solicitação'}
+            <button 
+              type="submit" 
+              disabled={loading} 
+              className="flex-[2] bg-beirario hover:bg-beirario-dark text-white font-black py-4 rounded-2xl shadow-xl shadow-beirario/20 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
+            >
+              {loading ? <RefreshCw size={20} className="animate-spin" /> : <Send size={20} />}
+              {loading ? 'Publicando...' : 'Publicar Solicitação'}
             </button>
           </div>
         </form>
