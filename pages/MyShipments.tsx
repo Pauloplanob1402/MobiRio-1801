@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { CheckCircle, RefreshCw, User, Building2, MapPin, Package } from 'lucide-react';
@@ -6,14 +7,16 @@ const MyShipments: React.FC = () => {
   const [solicitados, setSolicitados] = useState<any[]>([]);
   const [emTransporte, setEmTransporte] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth.user;
       if (!user) return;
 
-      // 1. MEUS PEDIDOS (Envios que eu criei) - Traz o nome da Unidade e do Fornecedor (se houver)
-      const { data: pedidos } = await supabase
+      // 1. MEUS PEDIDOS - TENTATIVA COM JOIN
+      const { data: pedidos, error: err1 } = await supabase
         .from('envios')
         .select(`
           *,
@@ -23,10 +26,21 @@ const MyShipments: React.FC = () => {
         .eq('solicitante_id', user.id)
         .order('created_at', { ascending: false });
       
-      setSolicitados(pedidos || []);
+      if (err1) {
+        console.warn("Join pedidos falhou, tentando fallback...");
+        const { data: fallbackPedidos } = await supabase
+          .from('envios')
+          .select('*')
+          .eq('solicitante_id', user.id)
+          .order('created_at', { ascending: false });
+        setSolicitados(fallbackPedidos || []);
+        setIsFallback(true);
+      } else {
+        setSolicitados(pedidos || []);
+      }
 
-      // 2. EM TRANSPORTE (Caronas que eu aceitei levar) - Traz nome e endereço do solicitante
-      const { data: transporte } = await supabase
+      // 2. EM TRANSPORTE - TENTATIVA COM JOIN
+      const { data: transporte, error: err2 } = await supabase
         .from('envios')
         .select(`
           *,
@@ -36,7 +50,18 @@ const MyShipments: React.FC = () => {
         .eq('fornecedor_id', user.id)
         .eq('status', 'em_transito');
       
-      setEmTransporte(transporte || []);
+      if (err2) {
+        console.warn("Join transporte falhou, tentando fallback...");
+        const { data: fallbackTransporte } = await supabase
+          .from('envios')
+          .select('*')
+          .eq('fornecedor_id', user.id)
+          .eq('status', 'em_transito');
+        setEmTransporte(fallbackTransporte || []);
+        setIsFallback(true);
+      } else {
+        setEmTransporte(transporte || []);
+      }
     } catch (err) { 
       console.error("Erro ao carregar atividades:", err); 
     } finally { 
@@ -46,7 +71,7 @@ const MyShipments: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    const channel = supabase.channel('my_activities_realtime')
+    const channel = supabase.channel('my_activities_resilient')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -56,10 +81,12 @@ const MyShipments: React.FC = () => {
     if (!window.confirm("Você confirma que entregou este volume?")) return;
     
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth.user;
       if (!user) throw new Error("Usuário não autenticado");
 
-      const { error } = await supabase.rpc('rpc_confirmar_entrega', { 
+      // RPC rpc_confirmar_entrega(p_solicitante_id, p_motorista_id)
+      const { data, error } = await supabase.rpc('rpc_confirmar_entrega', { 
         p_solicitante_id: envio.solicitante_id, 
         p_motorista_id: user.id 
       });
@@ -70,6 +97,7 @@ const MyShipments: React.FC = () => {
       alert('✅ Sucesso! Entrega finalizada e MOVE transferido.');
       fetchData();
     } catch (err: any) { 
+      console.error("Erro na confirmação:", err);
       alert('Erro na confirmação: ' + err.message); 
     }
   };
@@ -83,13 +111,15 @@ const MyShipments: React.FC = () => {
   return (
     <div className="p-6 space-y-10 max-w-5xl mx-auto font-sans">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-black uppercase text-gray-900 tracking-tighter">Minhas Atividades</h2>
+        <div>
+          <h2 className="text-3xl font-black uppercase text-gray-900 tracking-tighter">Minhas Atividades</h2>
+          {isFallback && <p className="text-[10px] text-orange-500 font-bold uppercase">⚠️ Dados em modo simplificado</p>}
+        </div>
         <button onClick={fetchData} className="p-2 bg-gray-50 rounded-lg hover:bg-gray-100 transition-all">
            <RefreshCw size={20} className="text-gray-400" />
         </button>
       </div>
       
-      {/* SEÇÃO 1: CARONAS QUE ESTOU LEVANDO */}
       <section className="space-y-4">
         <h3 className="font-bold text-beirario uppercase border-l-4 border-beirario pl-3 italic">Caronas que estou levando</h3>
         {emTransporte.length === 0 ? (
@@ -102,17 +132,17 @@ const MyShipments: React.FC = () => {
               <div className="flex-1 space-y-3">
                 <div className="flex items-center gap-2">
                   <User size={16} className="text-beirario" />
-                  <p className="font-black text-xs uppercase text-gray-800">PARA: {envio.solicitante?.nome}</p>
+                  <p className="font-black text-xs uppercase text-gray-800">PARA: {envio.solicitante?.nome || `Usuário ID: ${envio.solicitante_id.substring(0,8)}`}</p>
                 </div>
                 
                 <div className="grid grid-cols-1 gap-2 bg-gray-50 p-3 rounded-2xl">
                   <div className="flex items-start gap-2 text-[10px] font-bold text-gray-600 uppercase">
                     <MapPin size={14} className="text-red-500 shrink-0" />
-                    <span>COLETA: {envio.solicitante?.endereco}</span>
+                    <span>COLETA: {envio.solicitante?.endereco || 'Consultar solicitante'}</span>
                   </div>
                   <div className="flex items-start gap-2 text-[10px] font-bold text-gray-600 uppercase">
                     <Building2 size={14} className="text-blue-500 shrink-0" />
-                    <span>DESTINO: {envio.unidade?.nome}</span>
+                    <span>DESTINO: {envio.unidade?.nome || `Unidade ID: ${envio.unidade_id.substring(0,8)}`}</span>
                   </div>
                 </div>
 
@@ -131,7 +161,6 @@ const MyShipments: React.FC = () => {
         )}
       </section>
 
-      {/* SEÇÃO 2: MEUS PEDIDOS DE CARONA */}
       <section className="space-y-4 pt-10 border-t border-gray-100">
         <h3 className="font-bold text-gray-500 uppercase border-l-4 border-gray-300 pl-3">Meus Envios Solicitados</h3>
         {solicitados.length === 0 ? (
@@ -147,11 +176,11 @@ const MyShipments: React.FC = () => {
                   <div>
                     <p className="font-bold text-gray-900 text-sm uppercase leading-tight">{envio.descricao}</p>
                     <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">
-                      {envio.unidade?.nome} | {new Date(envio.created_at).toLocaleDateString()}
+                      {envio.unidade?.nome || `Unidade ID: ${envio.unidade_id.substring(0,8)}`} | {new Date(envio.created_at).toLocaleDateString()}
                     </p>
-                    {envio.fornecedor && (
+                    {envio.fornecedor_id && (
                        <p className="text-[10px] text-beirario font-black uppercase mt-1">
-                         Condutor: {envio.fornecedor.nome}
+                         Motorista: {envio.fornecedor?.nome || envio.fornecedor_id.substring(0,8)}
                        </p>
                     )}
                   </div>

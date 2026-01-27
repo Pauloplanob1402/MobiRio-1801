@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Truck, User, Building2, RefreshCw, MapPin } from 'lucide-react';
@@ -5,13 +6,15 @@ import { Truck, User, Building2, RefreshCw, MapPin } from 'lucide-react';
 const AvailableShipments: React.FC = () => {
   const [envios, setEnvios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isFallback, setIsFallback] = useState(false);
 
   const fetchAvailable = useCallback(async () => {
     try {
       const { data: auth } = await supabase.auth.getUser();
       const user = auth.user;
+      if (!user) return;
 
-      // AGORA COM JOINS: Buscando nomes reais em vez de IDs
+      // TENTATIVA 1: Query com Joins Avançados
       const { data, error } = await supabase
         .from('envios')
         .select(`
@@ -23,13 +26,28 @@ const AvailableShipments: React.FC = () => {
         .is('fornecedor_id', null)
         .order('created_at', { ascending: false });
       
-      if (error) throw error;
-      
-      // Filtra para não ver os próprios pedidos
-      const filtered = user ? (data || []).filter(item => item.solicitante_id !== user.id) : (data || []);
-      setEnvios(filtered);
+      if (error) {
+        console.warn("Join falhou, tentando fallback...", error);
+        // TENTATIVA 2: Fallback para Select Simples
+        const { data: fallbackData, error: fallbackError } = await supabase
+          .from('envios')
+          .select('*')
+          .eq('status', 'disponivel')
+          .is('fornecedor_id', null)
+          .order('created_at', { ascending: false });
+
+        if (fallbackError) throw fallbackError;
+        
+        const filtered = (fallbackData || []).filter(item => item.solicitante_id !== user.id);
+        setEnvios(filtered);
+        setIsFallback(true);
+      } else {
+        const filtered = (data || []).filter(item => item.solicitante_id !== user.id);
+        setEnvios(filtered);
+        setIsFallback(false);
+      }
     } catch (err) {
-      console.error("Erro na busca de caronas:", err);
+      console.error("Erro crítico na busca de caronas:", err);
     } finally {
       setLoading(false);
     }
@@ -37,7 +55,7 @@ const AvailableShipments: React.FC = () => {
 
   useEffect(() => {
     fetchAvailable();
-    const channel = supabase.channel('realtime_available')
+    const channel = supabase.channel('realtime_available_resilient')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchAvailable())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -75,7 +93,10 @@ const AvailableShipments: React.FC = () => {
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto font-sans">
       <div className="flex justify-between items-center">
-        <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Caronas Disponíveis</h2>
+        <div>
+          <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Caronas Disponíveis</h2>
+          {isFallback && <p className="text-[10px] text-orange-500 font-bold uppercase mt-1">⚠️ Modo de Compatibilidade Ativado</p>}
+        </div>
         <button onClick={fetchAvailable} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
           <RefreshCw size={20} className="text-gray-400" />
         </button>
@@ -94,18 +115,18 @@ const AvailableShipments: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2 font-black uppercase text-gray-800 text-[11px]">
                     <User size={14} className="text-beirario"/> 
-                    {envio.solicitante?.nome || 'Usuário'}
+                    {envio.solicitante?.nome || `Usuário ID: ${envio.solicitante_id.substring(0,8)}`}
                   </div>
                 </div>
                 
                 <div className="bg-gray-50 p-4 rounded-2xl space-y-3">
                   <div className="flex items-start gap-2 text-[10px] font-black text-gray-600 uppercase">
-                    <MapPin size={14} className="text-red-500 shrink-0"/> 
-                    <span>COLETA: {envio.solicitante?.endereco || 'Endereço não informado'}</span>
+                    <MapPin size={14} className="text-red-500 shrink-0" /> 
+                    <span>COLETA: {envio.solicitante?.endereco || 'Verificar via contato'}</span>
                   </div>
                   <div className="flex items-start gap-2 text-[10px] font-black text-gray-600 uppercase">
-                    <Building2 size={14} className="text-blue-500 shrink-0"/> 
-                    <span>DESTINO: {envio.unidade?.nome || 'Unidade Beira Rio'}</span>
+                    <Building2 size={14} className="text-blue-500 shrink-0" /> 
+                    <span>DESTINO: {envio.unidade?.nome || `Unidade ID: ${envio.unidade_id.substring(0,8)}`}</span>
                   </div>
                 </div>
                 
