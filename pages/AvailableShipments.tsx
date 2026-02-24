@@ -3,51 +3,47 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
 import { Truck, User, Building2, RefreshCw, MapPin } from 'lucide-react';
 
+// Correção de Tipagem
+interface Envio {
+  id: string;
+  descricao: string;
+  solicitante_id: string;
+  unidade_id: string;
+  created_at: string;
+  solicitante: { nome: string; endereco: string } | null;
+  fornecedor: { nome_fantasia: string } | null;
+  unidade: { nome: string } | null;
+}
+
 const AvailableShipments: React.FC = () => {
-  const [envios, setEnvios] = useState<any[]>([]);
+  const [envios, setEnvios] = useState<Envio[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isFallback, setIsFallback] = useState(false);
 
   const fetchAvailable = useCallback(async () => {
+    setLoading(true);
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth.user;
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // TENTATIVA 1: Query com Joins Avançados
+      // Query com JOIN, sem fallback
       const { data, error } = await supabase
         .from('envios')
-        .select(`
-          *,
-          solicitante:usuarios!solicitante_id(nome, endereco),
-          unidade:unidades(nome)
-        `) 
+        .select('*, solicitante:usuarios(nome), fornecedor:fornecedores(nome_fantasia)')
         .eq('status', 'disponivel')
         .is('fornecedor_id', null)
         .order('created_at', { ascending: false });
-      
-      if (error) {
-        console.warn("Join falhou, tentando fallback...", error);
-        // TENTATIVA 2: Fallback para Select Simples
-        const { data: fallbackData, error: fallbackError } = await supabase
-          .from('envios')
-          .select('*')
-          .eq('status', 'disponivel')
-          .is('fornecedor_id', null)
-          .order('created_at', { ascending: false });
 
-        if (fallbackError) throw fallbackError;
-        
-        const filtered = (fallbackData || []).filter(item => item.solicitante_id !== user.id);
-        setEnvios(filtered);
-        setIsFallback(true);
-      } else {
-        const filtered = (data || []).filter(item => item.solicitante_id !== user.id);
-        setEnvios(filtered);
-        setIsFallback(false);
+      if (error) {
+        console.error("Erro na busca de caronas com JOIN:", error);
+        throw error;
       }
+      
+      const filtered = (data || []).filter(item => item.solicitante_id !== user.id);
+      setEnvios(filtered);
+
     } catch (err) {
       console.error("Erro crítico na busca de caronas:", err);
+      setEnvios([]); // Limpa os envios em caso de erro
     } finally {
       setLoading(false);
     }
@@ -55,8 +51,9 @@ const AvailableShipments: React.FC = () => {
 
   useEffect(() => {
     fetchAvailable();
+    // O listener do Realtime já chama a nova fetchAvailable.
     const channel = supabase.channel('realtime_available_resilient')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchAvailable())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, fetchAvailable)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [fetchAvailable]);
@@ -95,7 +92,6 @@ const AvailableShipments: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-black text-gray-900 uppercase tracking-tighter">Caronas Disponíveis</h2>
-          {isFallback && <p className="text-[10px] text-orange-500 font-bold uppercase mt-1">⚠️ Modo de Compatibilidade Ativado</p>}
         </div>
         <button onClick={fetchAvailable} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
           <RefreshCw size={20} className="text-gray-400" />
@@ -114,8 +110,8 @@ const AvailableShipments: React.FC = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2 font-black uppercase text-gray-800 text-[11px]">
-                    <User size={14} className="text-beirario"/> 
-                    {envio.solicitante?.nome || `Usuário ID: ${envio.solicitante_id.substring(0,8)}`}
+                    <User size={14} className="text-beirario"/>
+                    {envio.fornecedor?.nome_fantasia || envio.solicitante?.nome || 'Sem Nome'}
                   </div>
                 </div>
                 

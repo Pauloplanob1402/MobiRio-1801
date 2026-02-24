@@ -22,7 +22,7 @@ const Dashboard: React.FC = () => {
         // Simplificação total: select('*') sem joins para evitar erro 400
         const { data: envios, error } = await supabase
           .from('envios')
-          .select('*')
+          .select('*, fornecedor:fornecedores(nome_fantasia)')
           .eq('solicitante_id', user.id);
 
         if (error) throw error;
