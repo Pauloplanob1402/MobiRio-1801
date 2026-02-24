@@ -111,7 +111,7 @@ const AvailableShipments: React.FC = () => {
                 <div className="flex justify-between items-start">
                   <div className="flex items-center gap-2 font-black uppercase text-gray-800 text-[11px]">
                     <User size={14} className="text-beirario"/>
-                    {envio.fornecedor?.nome_fantasia || envio.solicitante?.nome || 'Sem Nome'}
+                    {envio.solicitante?.nome || 'Sem Nome'}
                   </div>
                 </div>
                 

@@ -6,7 +6,6 @@ const MyShipments: React.FC = () => {
   const [solicitados, setSolicitados] = useState<any[]>([]);
   const [emTransporte, setEmTransporte] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSimplified, setIsSimplified] = useState(false);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -14,32 +13,26 @@ const MyShipments: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Tenta busca completa de PEDIDOS
       let { data: pedidos, error: err1 } = await supabase
         .from('envios')
         .select('*, unidade:unidades(nome), fornecedor:usuarios!fornecedor_id(nome)')
         .eq('solicitante_id', user.id)
         .order('created_at', { ascending: false });
 
-      // Fallback PEDIDOS
       if (err1) {
-        const { data: sP } = await supabase.from('envios').select('*').eq('solicitante_id', user.id);
-        pedidos = sP;
-        setIsSimplified(true);
+        console.error("Erro em pedidos:", err1);
+        pedidos = [];
       }
 
-      // Tenta busca completa de TRANSPORTE
       let { data: transporte, error: err2 } = await supabase
         .from('envios')
         .select('*, solicitante:usuarios!solicitante_id(nome, endereco), unidade:unidades(nome)')
         .eq('fornecedor_id', user.id)
         .eq('status', 'em_transito');
 
-      // Fallback TRANSPORTE
       if (err2) {
-        const { data: sT } = await supabase.from('envios').select('*').eq('fornecedor_id', user.id).eq('status', 'em_transito');
-        transporte = sT;
-        setIsSimplified(true);
+        console.error("Erro em transporte:", err2);
+        transporte = [];
       }
 
       setSolicitados(pedidos || []);
@@ -60,8 +53,8 @@ const MyShipments: React.FC = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { error } = await supabase.rpc('rpc_confirmar_entrega', { 
-        p_solicitante_id: envio.solicitante_id, 
-        p_motorista_id: user?.id 
+        solicitante_id: envio.solicitante_id, 
+        motorista_id: user?.id 
       });
       if (error) throw error;
       window.dispatchEvent(new CustomEvent('balanceUpdated'));
@@ -76,7 +69,6 @@ const MyShipments: React.FC = () => {
     <div className="p-6 space-y-10 max-w-5xl mx-auto">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-black uppercase">Minhas Atividades</h2>
-        {isSimplified && <span className="text-[10px] text-orange-500 font-bold">MODO ID ATIVO</span>}
       </div>
       
       <section className="space-y-4">
