@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Truck, Mail, Lock, User, FileText, MapPin, Phone, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Truck, Mail, Lock, User, FileText, MapPin, Phone, AlertCircle } from 'lucide-react';
 
 const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
@@ -53,17 +52,18 @@ const Register: React.FC = () => {
     setError(null);
 
     try {
-      // 1. Criar Auth User
-      const { data: authData, error: authError } = await supabase.auth.signUp({ 
-        email: formData.email, 
+      // 1. Criar usuário no Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: formData.email,
         password: formData.senha,
-        options: { data: { full_name: formData.nome } }
+        options: { data: { nome: formData.nome } }
       });
 
       if (authError) throw authError;
       if (!authData.user) throw new Error("Erro na autenticação.");
 
-      // 2. Criar Fornecedor Vinculado
+      // 2. Criar Fornecedor vinculado
+      // CORRIGIDO: removido campo 'creditos' que não existe na tabela
       const { error: supplierError } = await supabase.from('fornecedores').insert({
         id: authData.user.id,
         razao_social: formData.nome.toUpperCase() + ' LTDA',
@@ -71,12 +71,12 @@ const Register: React.FC = () => {
         cnpj: formData.cnpj,
         endereco: formData.endereco,
         telefone: formData.telefone,
-        creditos: 12
       });
 
       if (supplierError) throw supplierError;
 
       // 3. Criar Perfil de Usuário
+      // CORRIGIDO: removido campo 'creditos' que não existe na tabela
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
         fornecedor_id: authData.user.id,
@@ -85,20 +85,15 @@ const Register: React.FC = () => {
         telefone: formData.telefone,
         cnpj: formData.cnpj,
         endereco: formData.endereco,
-        creditos: 12
       });
 
       if (profileError) throw profileError;
 
-      // 4. Registrar Créditos Iniciais no Histórico
-      await supabase.from('movimentos_credito').insert({
-        usuario_id: authData.user.id,
-        quantidade: 12,
-        tipo: 'CREDITO',
-        envio_id: null
-      });
+      // ATENÇÃO: Os 12 MOVE iniciais são creditados automaticamente
+      // pelo trigger fn_inicializar_move_usuario no banco.
+      // NÃO inserir manualmente aqui para evitar duplicação.
 
-      alert('Cadastro realizado com sucesso! Você ganhou 12 MOVE.');
+      alert('Cadastro realizado! Você ganhou 12 MOVE para começar.');
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Erro ao realizar cadastro.');
@@ -113,7 +108,7 @@ const Register: React.FC = () => {
         <div className="max-w-md text-center flex flex-col items-center">
           <Truck size={80} className="mb-8" />
           <h1 className="text-6xl font-black mb-4 tracking-tighter">Mobirio</h1>
-          <p className="text-xl italic opacity-80 italic">"Organizando fluxos. Movendo juntos."</p>
+          <p className="text-xl italic opacity-80">"Organizando fluxos. Movendo juntos."</p>
           <div className="mt-10 bg-white/10 p-4 rounded-xl border border-white/10">
             <p className="text-sm font-bold">Receba 12 MOVE iniciais ao entrar na rede.</p>
           </div>
@@ -123,7 +118,7 @@ const Register: React.FC = () => {
       <div className="flex-1 flex items-center justify-center p-6 lg:p-12 overflow-y-auto">
         <div className="w-full max-w-lg">
           <h2 className="text-3xl font-bold text-gray-900 mb-6">Cadastre sua Empresa</h2>
-          
+
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm">
               <AlertCircle size={18} /> {error}
@@ -136,7 +131,7 @@ const Register: React.FC = () => {
                 <label className="text-xs font-bold text-gray-700 uppercase">Nome Completo</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input name="nome" type="text" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Ex: João da Silva" required value={formData.nome} onChange={handleChange} />
+                  <input name="nome" type="text" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Nome da sua Empresa" required value={formData.nome} onChange={handleChange} />
                 </div>
               </div>
 
@@ -152,7 +147,7 @@ const Register: React.FC = () => {
                 <label className="text-xs font-bold text-gray-700 uppercase">Senha</label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input name="senha" type="password" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Mínimo 6 chars" required minLength={6} value={formData.senha} onChange={handleChange} />
+                  <input name="senha" type="password" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Mínimo 6 caracteres" required minLength={6} value={formData.senha} onChange={handleChange} />
                 </div>
               </div>
 
