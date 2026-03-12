@@ -20,7 +20,6 @@ const Layout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Fecha sidebar ao trocar de rota
   useEffect(() => {
     setIsSidebarOpen(false);
   }, [location.pathname]);
@@ -34,21 +33,19 @@ const Layout: React.FC = () => {
         const user = session?.user;
 
         if (user && mounted) {
-          // CORRIGIDO: metadata salvo como 'nome', não 'full_name'
           const fallbackName = user.user_metadata?.nome || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';
           setUserName(fallbackName);
 
+          // CORRIGIDO: removida referência a fornecedores que não existe mais
           const { data: usuario } = await supabase
             .from('usuarios')
-            .select('nome, fornecedores(nome_fantasia)')
+            .select('nome, nome_fantasia')
             .eq('id', user.id)
             .maybeSingle();
 
           if (usuario && mounted) {
             if (usuario.nome) setUserName(usuario.nome);
-            if ((usuario.fornecedores as any)?.nome_fantasia) {
-              setFornecedorName((usuario.fornecedores as any).nome_fantasia);
-            }
+            if (usuario.nome_fantasia) setFornecedorName(usuario.nome_fantasia);
           }
         }
       } catch (err) {
