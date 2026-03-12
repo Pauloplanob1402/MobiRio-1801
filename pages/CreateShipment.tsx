@@ -4,6 +4,9 @@ import { supabase } from '../lib/supabaseClient';
 import { Unidade } from '../types';
 import { Send, CheckCircle, Building2, FileText, RefreshCw } from 'lucide-react';
 
+// Extrai só "Filial 01 - Igrejinha" do nome completo
+const nomesCurto = (nome: string) => nome.split(':')[0].trim();
+
 const CreateShipment: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -42,7 +45,6 @@ const CreateShipment: React.FC = () => {
     setLoading(true);
 
     try {
-      // CORRIGIDO: removido fornecedor_id: null para não conflitar com foreign key
       const { error } = await supabase
         .from('envios')
         .insert({
@@ -96,7 +98,7 @@ const CreateShipment: React.FC = () => {
               >
                 <option value="">Selecione a Unidade de Destino</option>
                 {unidades.map(u => (
-                  <option key={u.id} value={u.id}>{u.nome}</option>
+                  <option key={u.id} value={u.id}>{nomesCurto(u.nome)}</option>
                 ))}
               </select>
             </div>

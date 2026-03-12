@@ -60,8 +60,6 @@ const AvailableShipments: React.FC = () => {
 
     setAceitando(envio.id);
     try {
-      // Aceitar carona — sem débito de MOVE aqui.
-      // O MOVE é transferido apenas na confirmação da entrega (MyShipments).
       const { error: updateError } = await supabase
         .from('envios')
         .update({
@@ -115,12 +113,18 @@ const AvailableShipments: React.FC = () => {
 
                 <div className="bg-gray-50 p-4 rounded-2xl space-y-3">
                   <div className="flex items-start gap-2 text-[10px] font-black text-gray-600 uppercase">
-                    <MapPin size={14} className="text-red-500 shrink-0" />
-                    <span>COLETA: {envio.solicitante?.endereco || 'Verificar via contato'}</span>
+                    <MapPin size={14} className="text-red-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="block text-gray-400">COLETA</span>
+                      <span>{envio.solicitante?.endereco || 'Endereço não informado'}</span>
+                    </div>
                   </div>
                   <div className="flex items-start gap-2 text-[10px] font-black text-gray-600 uppercase">
-                    <Building2 size={14} className="text-blue-500 shrink-0" />
-                    <span>DESTINO: {envio.unidade?.nome || `Unidade ${envio.unidade_id?.substring(0, 8)}`}</span>
+                    <Building2 size={14} className="text-blue-500 shrink-0 mt-0.5" />
+                    <div>
+                      <span className="block text-gray-400">DESTINO</span>
+                      <span>{envio.unidade?.nome || `Unidade ${envio.unidade_id?.substring(0, 8)}`}</span>
+                    </div>
                   </div>
                 </div>
 
