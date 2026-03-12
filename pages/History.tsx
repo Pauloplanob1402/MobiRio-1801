@@ -14,11 +14,15 @@ const History: React.FC = () => {
 
       const userId = auth.user.id;
 
+      // CORRIGIDO: hints explícitos com nome da FK para evitar PGRST201
       const { data, error } = await supabase
         .from('envios')
-        .select('*, unidade:unidades(nome), solicitante:usuarios!solicitante_id(nome)')
+        .select(`
+          id, descricao, status, created_at, solicitante_id, unidade_id,
+          unidade:unidades!envios_unidade_id_fkey(nome),
+          solicitante:usuarios!envios_solicitante_fkey(nome)
+        `)
         .eq('status', 'entregue')
-        // CORRIGIDO: era fornecedor_id, agora usa entregador_id
         .or(`solicitante_id.eq.${userId},entregador_id.eq.${userId}`)
         .order('created_at', { ascending: false });
 
@@ -33,7 +37,6 @@ const History: React.FC = () => {
 
   useEffect(() => {
     fetchHistory();
-    // Atualiza em tempo real quando um envio for marcado como entregue
     const channel = supabase.channel('history_updates')
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'envios' }, fetchHistory)
       .subscribe();

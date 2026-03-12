@@ -51,11 +51,9 @@ const Dashboard: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-
     const channel = supabase.channel('dashboard_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchData())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [fetchData]);
 

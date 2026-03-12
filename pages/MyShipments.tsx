@@ -24,17 +24,21 @@ const MyShipments: React.FC = () => {
       // Meus pedidos (eu sou o solicitante)
       const { data: pedidos, error: err1 } = await supabase
         .from('envios')
-        .select('*, unidade:unidades(nome)')
+        .select('id, descricao, status, created_at, unidade_id, unidade:unidades!envios_unidade_id_fkey(nome)')
         .eq('solicitante_id', user.id)
         .order('created_at', { ascending: false });
 
       if (err1) console.error("Erro em pedidos:", err1);
 
       // Caronas que estou transportando (eu sou o entregador)
-      // CORRIGIDO: era fornecedor_id, agora usa entregador_id
+      // CORRIGIDO: hints explícitos com nome da FK para evitar PGRST201
       const { data: transporte, error: err2 } = await supabase
         .from('envios')
-        .select('*, solicitante:usuarios!solicitante_id(nome, endereco), unidade:unidades(nome)')
+        .select(`
+          id, descricao, status, solicitante_id, unidade_id,
+          solicitante:usuarios!envios_solicitante_fkey(nome, endereco),
+          unidade:unidades!envios_unidade_id_fkey(nome)
+        `)
         .eq('entregador_id', user.id)
         .eq('status', 'em_transito');
 
@@ -51,7 +55,6 @@ const MyShipments: React.FC = () => {
 
   useEffect(() => {
     fetchData();
-    // Atualiza em tempo real
     const channel = supabase.channel('myshipments_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, fetchData)
       .subscribe();
@@ -66,7 +69,6 @@ const MyShipments: React.FC = () => {
 
     setConfirmando(envio.id);
     try {
-      // 1. Marca o envio como entregue
       const { error: updateError } = await supabase
         .from('envios')
         .update({ status: 'entregue' })
@@ -74,8 +76,6 @@ const MyShipments: React.FC = () => {
 
       if (updateError) throw updateError;
 
-      // 2. Credita +1 MOVE para quem entregou (eu)
-      // CORRIGIDO: usa confirmar_entrega_segura com os parâmetros corretos
       const { error: moveError } = await supabase.rpc('confirmar_entrega_segura', {
         p_usuario_de: envio.solicitante_id,
         p_usuario_para: user.id,
@@ -84,9 +84,7 @@ const MyShipments: React.FC = () => {
 
       if (moveError) throw moveError;
 
-      // 3. Notifica outras telas para atualizar
       window.dispatchEvent(new CustomEvent('balanceUpdated'));
-
       alert('✅ Entrega finalizada! +1 MOVE creditado.');
       fetchData();
     } catch (err: any) {
@@ -174,7 +172,6 @@ const MyShipments: React.FC = () => {
                 <p className="text-[10px] text-gray-400 font-black uppercase mt-1">
                   {envio.unidade?.nome || `Unidade ${envio.unidade_id?.substring(0, 8)}`}
                   {' | '}
-                  {/* CORRIGIDO: status traduzido para português */}
                   {STATUS_LABEL[envio.status] ?? envio.status}
                 </p>
               </div>

@@ -23,18 +23,22 @@ const AvailableShipments: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // CORRIGIDO: hints explícitos com nome da FK para evitar PGRST201
       const { data, error } = await supabase
         .from('envios')
-        .select('*, solicitante:usuarios(nome, endereco), unidade:unidades(nome)')
+        .select(`
+          id, descricao, solicitante_id, unidade_id, created_at,
+          solicitante:usuarios!envios_solicitante_fkey(nome, endereco),
+          unidade:unidades!envios_unidade_id_fkey(nome)
+        `)
         .eq('status', 'disponivel')
         .is('entregador_id', null)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      // Não mostrar envios que o próprio usuário criou
       const filtered = (data || []).filter(item => item.solicitante_id !== user.id);
-      setEnvios(filtered);
+      setEnvios(filtered as Envio[]);
     } catch (err) {
       console.error("Erro na busca de caronas:", err);
       setEnvios([]);
@@ -57,7 +61,7 @@ const AvailableShipments: React.FC = () => {
 
     setAceitando(envio.id);
     try {
-      // 1. Verifica saldo MOVE de quem vai aceitar
+      // 1. Verifica saldo MOVE
       const { data: movs, error: saldoError } = await supabase
         .from('movimentos_credito')
         .select('quantidade')
@@ -72,7 +76,7 @@ const AvailableShipments: React.FC = () => {
         return;
       }
 
-      // 2. Atualiza o envio com entregador_id e aceito_por (campos corretos)
+      // 2. Atualiza o envio
       const { error: updateError } = await supabase
         .from('envios')
         .update({
@@ -85,7 +89,7 @@ const AvailableShipments: React.FC = () => {
 
       if (updateError) throw updateError;
 
-      // 3. Debita 1 MOVE de quem aceitou
+      // 3. Debita 1 MOVE
       const { error: moveError } = await supabase
         .from('movimentos_credito')
         .insert({
