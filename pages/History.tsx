@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { CheckCircle2, Clock, RefreshCw, Package, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Clock, RefreshCw, Package } from 'lucide-react';
 
 const History: React.FC = () => {
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isSimplified, setIsSimplified] = useState(false);
 
   const fetchHistory = useCallback(async () => {
     setLoading(true);
@@ -13,28 +12,17 @@ const History: React.FC = () => {
       const { data: auth } = await supabase.auth.getUser();
       if (!auth?.user) return;
 
-      // PLANO A: Tenta buscar com nomes
-      let { data, error } = await supabase
+      const userId = auth.user.id;
+
+      const { data, error } = await supabase
         .from('envios')
-        .select('*, unidade:unidades(nome), fornecedor:usuarios!fornecedor_id(nome), solicitante:usuarios!solicitante_id(nome)')
+        .select('*, unidade:unidades(nome), solicitante:usuarios!solicitante_id(nome)')
         .eq('status', 'entregue')
-        .or(`solicitante_id.eq.${auth.user.id},fornecedor_id.eq.${auth.user.id}`)
-        .order('updated_at', { ascending: false });
+        // CORRIGIDO: era fornecedor_id, agora usa entregador_id
+        .or(`solicitante_id.eq.${userId},entregador_id.eq.${userId}`)
+        .order('created_at', { ascending: false });
 
-      // PLANO B: Fallback para IDs se o banco der erro 400
-      if (error) {
-        const { data: sD, error: sE } = await supabase
-          .from('envios')
-          .select('*')
-          .eq('status', 'entregue')
-          .or(`solicitante_id.eq.${auth.user.id},fornecedor_id.eq.${auth.user.id}`)
-          .order('updated_at', { ascending: false });
-        
-        if (sE) throw sE;
-        data = sD;
-        setIsSimplified(true);
-      }
-
+      if (error) throw error;
       setHistory(data || []);
     } catch (err) {
       console.error("Erro Histórico:", err);
@@ -43,15 +31,28 @@ const History: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => { fetchHistory(); }, [fetchHistory]);
+  useEffect(() => {
+    fetchHistory();
+    // Atualiza em tempo real quando um envio for marcado como entregue
+    const channel = supabase.channel('history_updates')
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'envios' }, fetchHistory)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchHistory]);
 
-  if (loading) return <div className="flex justify-center py-20"><RefreshCw className="animate-spin text-beirario" size={32} /></div>;
+  if (loading) return (
+    <div className="flex justify-center py-20">
+      <RefreshCw className="animate-spin text-beirario" size={32} />
+    </div>
+  );
 
   return (
-    <div className="p-6 space-y-8 max-w-5xl mx-auto">
+    <div className="p-6 space-y-8 max-w-5xl mx-auto font-sans">
       <div className="flex justify-between items-center">
         <h2 className="text-3xl font-black uppercase">Histórico</h2>
-        {isSimplified && <span className="text-[10px] text-orange-500 font-bold uppercase flex items-center gap-1"><AlertTriangle size={12}/> Dados Resumidos</span>}
+        <button onClick={fetchHistory} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+          <RefreshCw size={20} className="text-gray-400" />
+        </button>
       </div>
 
       {history.length === 0 ? (
@@ -66,11 +67,18 @@ const History: React.FC = () => {
               <div className="flex-1">
                 <p className="font-bold text-gray-900 text-sm">"{item.descricao}"</p>
                 <div className="flex gap-4 mt-2 text-[10px] text-gray-400 font-black uppercase tracking-tighter">
-                  <span><Clock size={10} className="inline mr-1"/>{new Date(item.updated_at).toLocaleDateString()}</span>
-                  <span>Unidade: {item.unidade?.nome || item.unidade_id?.substring(0,8)}</span>
+                  <span>
+                    <Clock size={10} className="inline mr-1" />
+                    {new Date(item.created_at).toLocaleDateString('pt-BR')}
+                  </span>
+                  <span>Unidade: {item.unidade?.nome || item.unidade_id?.substring(0, 8)}</span>
+                  {item.solicitante?.nome && (
+                    <span>Solicitante: {item.solicitante.nome}</span>
+                  )}
                 </div>
               </div>
-              <div className="bg-green-50 text-green-700 px-4 py-2 rounded-full text-[10px] font-black uppercase border border-green-100">
+              <div className="bg-green-50 text-green-700 px-4 py-2 rounded-full text-[10px] font-black uppercase border border-green-100 flex items-center gap-1">
+                <CheckCircle2 size={12} />
                 Concluído
               </div>
             </div>

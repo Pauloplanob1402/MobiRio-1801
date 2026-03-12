@@ -1,51 +1,63 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Package, Truck, CheckCircle2, Clock, ChevronRight, RefreshCw } from 'lucide-react';
 
+const STATUS_LABEL: Record<string, string> = {
+  disponivel: 'Disponível',
+  em_transito: 'Em Rota',
+  entregue: 'Entregue',
+  cancelado: 'Cancelado',
+};
+
 const Dashboard: React.FC = () => {
-  const [stats, setStats] = useState({
-    pendentes: 0,
-    emTransito: 0,
-    concluidos: 0,
-  });
+  const [stats, setStats] = useState({ pendentes: 0, emTransito: 0, concluidos: 0 });
   const [recentEnvios, setRecentEnvios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+  const fetchData = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
 
-        // Simplificação total: select('*') sem joins para evitar erro 400
-        const { data: envios, error } = await supabase
-          .from('envios')
-          .select('*, fornecedor:fornecedores(nome_fantasia)')
-          .eq('solicitante_id', user.id);
+      const { data: envios, error } = await supabase
+        .from('envios')
+        .select('*, fornecedor:fornecedores(nome_fantasia)')
+        .eq('solicitante_id', user.id);
 
-        if (error) throw error;
+      if (error) throw error;
 
-        const safeEnvios = envios || [];
-        const counts = safeEnvios.reduce((acc: any, curr: any) => {
-          if (curr.status === 'disponivel') acc.pendentes++;
-          if (curr.status === 'em_transito') acc.emTransito++;
-          if (curr.status === 'entregue') acc.concluidos++;
-          return acc;
-        }, { pendentes: 0, emTransito: 0, concluidos: 0 });
+      const safeEnvios = envios || [];
+      const counts = safeEnvios.reduce((acc: any, curr: any) => {
+        if (curr.status === 'disponivel') acc.pendentes++;
+        if (curr.status === 'em_transito') acc.emTransito++;
+        if (curr.status === 'entregue') acc.concluidos++;
+        return acc;
+      }, { pendentes: 0, emTransito: 0, concluidos: 0 });
 
-        setStats(counts);
-        setRecentEnvios([...safeEnvios].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()).slice(0, 5));
-      } catch (error) {
-        console.error("Erro no Dashboard (Bad Request?):", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+      setStats(counts);
+      setRecentEnvios(
+        [...safeEnvios]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+          .slice(0, 5)
+      );
+    } catch (error) {
+      console.error("Erro no Dashboard:", error);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchData();
+
+    // Atualiza em tempo real quando qualquer envio mudar
+    const channel = supabase.channel('dashboard_updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchData())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [fetchData]);
 
   const StatCard = ({ title, value, icon: Icon, color }: any) => (
     <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
@@ -74,8 +86,8 @@ const Dashboard: React.FC = () => {
           <h2 className="text-4xl font-black text-gray-900 tracking-tight uppercase">Painel de Controle</h2>
           <p className="text-gray-500 mt-1 font-medium">Ecossistema logístico Grupo Beira Rio.</p>
         </div>
-        <Link 
-          to="/criar" 
+        <Link
+          to="/criar"
           className="bg-beirario hover:bg-beirario-dark text-white px-8 py-4 rounded-2xl font-black uppercase shadow-xl shadow-beirario/20 transition-all flex items-center justify-center gap-2 active:scale-95"
         >
           <Package size={20} />
@@ -108,12 +120,15 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-bold text-gray-900 text-sm">{envio.descricao}</p>
-                    <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">Status: {envio.status}</p>
+                    {/* Status traduzido para português */}
+                    <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">
+                      {STATUS_LABEL[envio.status] ?? envio.status}
+                    </p>
                   </div>
                 </div>
                 <div className="text-right">
                   <span className="text-[9px] text-gray-400 font-bold block">
-                    {new Date(envio.created_at).toLocaleDateString()}
+                    {new Date(envio.created_at).toLocaleDateString('pt-BR')}
                   </span>
                 </div>
               </div>
