@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -10,7 +9,6 @@ import {
   History, 
   LogOut,
   Menu,
-  Building2,
   Wallet as WalletIcon,
   HelpCircle
 } from 'lucide-react';
@@ -29,18 +27,18 @@ const Layout: React.FC = () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user;
-        
+
         if (user && mounted) {
-          // Fallback imediato para metadados antes da consulta ao banco
-          const fallbackName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';
+          // CORRIGIDO: metadata salvo como 'nome', não 'full_name'
+          const fallbackName = user.user_metadata?.nome || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';
           setUserName(fallbackName);
 
-          const { data: usuario, error } = await supabase
+          const { data: usuario } = await supabase
             .from('usuarios')
-            .select('nome, email, fornecedores(nome_fantasia)')
+            .select('nome, fornecedores(nome_fantasia)')
             .eq('id', user.id)
             .maybeSingle();
-          
+
           if (usuario && mounted) {
             if (usuario.nome) setUserName(usuario.nome);
             if ((usuario.fornecedores as any)?.nome_fantasia) {
