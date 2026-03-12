@@ -20,6 +20,11 @@ const Layout: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Fecha sidebar ao trocar de rota
+  useEffect(() => {
+    setIsSidebarOpen(false);
+  }, [location.pathname]);
+
   useEffect(() => {
     let mounted = true;
 
