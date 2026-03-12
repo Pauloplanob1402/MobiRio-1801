@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
@@ -29,34 +28,32 @@ const CreateShipment: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // VÍNCULO DE USUÁRIO GARANTIDO: Obtendo o ID do usuário logado
+
     const { data: auth } = await supabase.auth.getUser();
     const user = auth.user;
-    
+
     if (!user) {
       alert('Sessão expirada. Faça login novamente.');
       return navigate('/login');
     }
 
     if (!formData.unidade_id) return alert('Selecione uma unidade de destino.');
-    
+
     setLoading(true);
 
     try {
-      // Inserção com solicitante_id obrigatório vindo do Auth
+      // CORRIGIDO: removido fornecedor_id: null para não conflitar com foreign key
       const { error } = await supabase
         .from('envios')
         .insert({
-          solicitante_id: user.id, 
-          fornecedor_id: null,
+          solicitante_id: user.id,
           descricao: formData.descricao,
           unidade_id: formData.unidade_id,
-          status: 'disponivel'
+          status: 'disponivel',
         });
 
       if (error) throw error;
-      
+
       setSuccess(true);
       setTimeout(() => navigate('/meus-envios'), 1500);
     } catch (err: any) {
@@ -91,11 +88,11 @@ const CreateShipment: React.FC = () => {
             <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Destino (Unidade Beira Rio)</label>
             <div className="relative">
               <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-beirario" size={20} />
-              <select 
+              <select
                 className="w-full pl-12 pr-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-beirario/10 focus:border-beirario text-sm appearance-none font-bold text-gray-700"
                 required
                 value={formData.unidade_id}
-                onChange={(e) => setFormData({...formData, unidade_id: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, unidade_id: e.target.value })}
               >
                 <option value="">Selecione a Unidade de Destino</option>
                 {unidades.map(u => (
@@ -109,27 +106,27 @@ const CreateShipment: React.FC = () => {
             <label className="text-xs font-black text-gray-400 uppercase tracking-widest ml-1">Descrição Detalhada</label>
             <div className="relative">
               <FileText className="absolute left-4 top-4 text-beirario" size={20} />
-              <textarea 
+              <textarea
                 className="w-full pl-12 pr-6 py-4 bg-gray-50 border border-gray-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-beirario/10 focus:border-beirario min-h-[150px] text-sm font-medium text-gray-700 leading-relaxed"
-                placeholder="Ex: Amostras de couro, 2 caixas pequenas lacradas. Peso aprox: 3kg."
+                placeholder="Ex: Amostras de palmilhas, solas e enfeites. 2 caixas pequenas lacradas. Peso aprox: 2kg."
                 required
                 value={formData.descricao}
-                onChange={(e) => setFormData({...formData, descricao: e.target.value})}
+                onChange={(e) => setFormData({ ...formData, descricao: e.target.value })}
               ></textarea>
             </div>
           </div>
 
           <div className="pt-6 flex flex-col sm:flex-row gap-4">
-            <button 
-              type="button" 
-              onClick={() => navigate(-1)} 
+            <button
+              type="button"
+              onClick={() => navigate(-1)}
               className="flex-1 px-8 py-4 border border-gray-200 rounded-2xl font-black uppercase text-xs text-gray-400 hover:bg-gray-50 transition-all"
             >
               Cancelar
             </button>
-            <button 
-              type="submit" 
-              disabled={loading} 
+            <button
+              type="submit"
+              disabled={loading}
               className="flex-[2] bg-beirario hover:bg-beirario-dark text-white font-black py-4 rounded-2xl shadow-xl shadow-beirario/20 flex items-center justify-center gap-3 transition-all active:scale-95 disabled:opacity-50"
             >
               {loading ? <RefreshCw size={20} className="animate-spin" /> : <Send size={20} />}
