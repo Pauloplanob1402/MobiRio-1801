@@ -62,25 +62,13 @@ const Register: React.FC = () => {
       if (authError) throw authError;
       if (!authData.user) throw new Error("Erro na autenticação.");
 
-      // 2. Criar Fornecedor vinculado
-      // CORRIGIDO: removido campo 'creditos' que não existe na tabela
-      const { error: supplierError } = await supabase.from('fornecedores').insert({
-        id: authData.user.id,
-        razao_social: formData.nome.toUpperCase() + ' LTDA',
-        nome_fantasia: formData.nome,
-        cnpj: formData.cnpj,
-        endereco: formData.endereco,
-        telefone: formData.telefone,
-      });
-
-      if (supplierError) throw supplierError;
-
-      // 3. Criar Perfil de Usuário
-      // CORRIGIDO: removido campo 'creditos' que não existe na tabela
+      // 2. Criar perfil em usuarios — tabela única, sem fornecedores
+      // CORRIGIDO: removida inserção em 'fornecedores' que não existe mais
       const { error: profileError } = await supabase.from('usuarios').insert({
         id: authData.user.id,
-        fornecedor_id: authData.user.id,
         nome: formData.nome,
+        nome_fantasia: formData.nome,
+        razao_social: formData.nome.toUpperCase() + ' LTDA',
         email: formData.email,
         telefone: formData.telefone,
         cnpj: formData.cnpj,
@@ -89,9 +77,7 @@ const Register: React.FC = () => {
 
       if (profileError) throw profileError;
 
-      // ATENÇÃO: Os 12 MOVE iniciais são creditados automaticamente
-      // pelo trigger fn_inicializar_move_usuario no banco.
-      // NÃO inserir manualmente aqui para evitar duplicação.
+      // Os 12 MOVE são creditados automaticamente pelo trigger fn_inicializar_move_usuario
 
       alert('Cadastro realizado! Você ganhou 12 MOVE para começar.');
       navigate('/');
@@ -128,7 +114,7 @@ const Register: React.FC = () => {
           <form onSubmit={handleRegister} className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold text-gray-700 uppercase">Nome Completo</label>
+                <label className="text-xs font-bold text-gray-700 uppercase">Nome da Empresa</label>
                 <div className="relative">
                   <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
                   <input name="nome" type="text" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Nome da sua Empresa" required value={formData.nome} onChange={handleChange} />
