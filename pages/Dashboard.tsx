@@ -20,9 +20,10 @@ const Dashboard: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // CORRIGIDO: removido JOIN com fornecedores que não existe mais
       const { data: envios, error } = await supabase
         .from('envios')
-        .select('*, fornecedor:fornecedores(nome_fantasia)')
+        .select('id, descricao, status, created_at')
         .eq('solicitante_id', user.id);
 
       if (error) throw error;
@@ -51,7 +52,6 @@ const Dashboard: React.FC = () => {
   useEffect(() => {
     fetchData();
 
-    // Atualiza em tempo real quando qualquer envio mudar
     const channel = supabase.channel('dashboard_updates')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, () => fetchData())
       .subscribe();
@@ -120,7 +120,6 @@ const Dashboard: React.FC = () => {
                   </div>
                   <div>
                     <p className="font-bold text-gray-900 text-sm">{envio.descricao}</p>
-                    {/* Status traduzido para português */}
                     <p className="text-[10px] text-gray-400 font-bold uppercase mt-1">
                       {STATUS_LABEL[envio.status] ?? envio.status}
                     </p>
