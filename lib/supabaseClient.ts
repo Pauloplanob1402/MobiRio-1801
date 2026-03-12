@@ -1,12 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 
-// As chaves são lidas exclusivamente das variáveis de ambiente (Vercel).
-// NUNCA coloque chaves diretamente no código — o repositório é público.
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Busca as variáveis de ambiente do Vite
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-  throw new Error("Variáveis de ambiente VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY não configuradas.");
+// Verificação amigável para debug no navegador
+if (!supabaseUrl || !supabaseAnonKey) {
+  console.warn("⚠️ Atenção: Variáveis de ambiente não encontradas. Verifique as configurações na Vercel.");
+} else {
+  console.log("🚀 Conexão com Supabase preparada.");
 }
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+// Inicializa o cliente mesmo que as chaves estejam vazias (evita erro fatal de importação)
+export const supabase = createClient(
+  supabaseUrl || 'https://placeholder.supabase.co', 
+  supabaseAnonKey || 'placeholder'
+);
