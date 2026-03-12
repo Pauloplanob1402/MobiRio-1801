@@ -60,22 +60,8 @@ const AvailableShipments: React.FC = () => {
 
     setAceitando(envio.id);
     try {
-      // 1. Verifica saldo MOVE
-      const { data: movs, error: saldoError } = await supabase
-        .from('movimentos_credito')
-        .select('quantidade')
-        .eq('usuario_id', user.id);
-
-      if (saldoError) throw saldoError;
-
-      const saldo = (movs || []).reduce((acc, m) => acc + (m.quantidade ?? 0), 0);
-
-      if (saldo < 1) {
-        alert('⚠️ Saldo MOVE insuficiente para aceitar esta carona.');
-        return;
-      }
-
-      // 2. Atualiza o envio — CORRIGIDO: status 'aceito' (não 'em_transito')
+      // Aceitar carona — sem débito de MOVE aqui.
+      // O MOVE é transferido apenas na confirmação da entrega (MyShipments).
       const { error: updateError } = await supabase
         .from('envios')
         .update({
@@ -88,18 +74,7 @@ const AvailableShipments: React.FC = () => {
 
       if (updateError) throw updateError;
 
-      // 3. Debita 1 MOVE
-      const { error: moveError } = await supabase
-        .from('movimentos_credito')
-        .insert({
-          usuario_id: user.id,
-          quantidade: -1,
-          tipo: 'DEBITO_ENTREGA',
-        });
-
-      if (moveError) throw moveError;
-
-      alert('✅ Carona aceita! Vá em "Minhas Atividades" para ver os detalhes.');
+      alert('✅ Carona aceita! Vá em "Minhas Atividades" para finalizar a entrega e ganhar +1 MOVE.');
       fetchAvailable();
     } catch (err: any) {
       alert('Erro ao aceitar carona: ' + err.message);
