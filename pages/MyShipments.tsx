@@ -3,10 +3,10 @@ import { supabase } from '../lib/supabaseClient';
 import { CheckCircle, RefreshCw, Package } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
-  disponivel: 'Disponível',
-  em_transito: 'Em Rota',
+  disponivel: 'Aguardando',
+  aceito: 'Em Rota',
+  retirado: 'Retirado',
   entregue: 'Entregue',
-  cancelado: 'Cancelado',
 };
 
 const MyShipments: React.FC = () => {
@@ -21,7 +21,6 @@ const MyShipments: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Meus pedidos (eu sou o solicitante)
       const { data: pedidos, error: err1 } = await supabase
         .from('envios')
         .select('id, descricao, status, created_at, unidade_id, unidade:unidades!envios_unidade_id_fkey(nome)')
@@ -30,8 +29,7 @@ const MyShipments: React.FC = () => {
 
       if (err1) console.error("Erro em pedidos:", err1);
 
-      // Caronas que estou transportando (eu sou o entregador)
-      // CORRIGIDO: hints explícitos com nome da FK para evitar PGRST201
+      // CORRIGIDO: status 'aceito' e 'retirado' (não 'em_transito')
       const { data: transporte, error: err2 } = await supabase
         .from('envios')
         .select(`
@@ -40,7 +38,7 @@ const MyShipments: React.FC = () => {
           unidade:unidades!envios_unidade_id_fkey(nome)
         `)
         .eq('entregador_id', user.id)
-        .eq('status', 'em_transito');
+        .in('status', ['aceito', 'retirado']);
 
       if (err2) console.error("Erro em transporte:", err2);
 
@@ -177,7 +175,7 @@ const MyShipments: React.FC = () => {
               </div>
               <div className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${
                 envio.status === 'entregue' ? 'bg-green-50 text-green-700' :
-                envio.status === 'em_transito' ? 'bg-blue-50 text-blue-700' :
+                envio.status === 'aceito' || envio.status === 'retirado' ? 'bg-blue-50 text-blue-700' :
                 'bg-orange-50 text-orange-700'
               }`}>
                 {STATUS_LABEL[envio.status] ?? envio.status}

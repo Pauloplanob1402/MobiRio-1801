@@ -4,10 +4,10 @@ import { supabase } from '../lib/supabaseClient';
 import { Package, Truck, CheckCircle2, Clock, ChevronRight, RefreshCw } from 'lucide-react';
 
 const STATUS_LABEL: Record<string, string> = {
-  disponivel: 'Disponível',
-  em_transito: 'Em Rota',
+  disponivel: 'Aguardando',
+  aceito: 'Em Rota',
+  retirado: 'Retirado',
   entregue: 'Entregue',
-  cancelado: 'Cancelado',
 };
 
 const Dashboard: React.FC = () => {
@@ -20,7 +20,6 @@ const Dashboard: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // CORRIGIDO: removido JOIN com fornecedores que não existe mais
       const { data: envios, error } = await supabase
         .from('envios')
         .select('id, descricao, status, created_at')
@@ -31,7 +30,7 @@ const Dashboard: React.FC = () => {
       const safeEnvios = envios || [];
       const counts = safeEnvios.reduce((acc: any, curr: any) => {
         if (curr.status === 'disponivel') acc.pendentes++;
-        if (curr.status === 'em_transito') acc.emTransito++;
+        if (curr.status === 'aceito' || curr.status === 'retirado') acc.emTransito++;
         if (curr.status === 'entregue') acc.concluidos++;
         return acc;
       }, { pendentes: 0, emTransito: 0, concluidos: 0 });
@@ -94,7 +93,7 @@ const Dashboard: React.FC = () => {
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <StatCard title="Pendente" value={stats.pendentes} icon={Clock} color="bg-orange-500" />
+        <StatCard title="Aguardando" value={stats.pendentes} icon={Clock} color="bg-orange-500" />
         <StatCard title="Em Rota" value={stats.emTransito} icon={Truck} color="bg-blue-500" />
         <StatCard title="Concluído" value={stats.concluidos} icon={CheckCircle2} color="bg-green-500" />
       </div>

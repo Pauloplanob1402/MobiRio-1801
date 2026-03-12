@@ -23,7 +23,6 @@ const AvailableShipments: React.FC = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // CORRIGIDO: hints explícitos com nome da FK para evitar PGRST201
       const { data, error } = await supabase
         .from('envios')
         .select(`
@@ -76,14 +75,14 @@ const AvailableShipments: React.FC = () => {
         return;
       }
 
-      // 2. Atualiza o envio
+      // 2. Atualiza o envio — CORRIGIDO: status 'aceito' (não 'em_transito')
       const { error: updateError } = await supabase
         .from('envios')
         .update({
           entregador_id: user.id,
           aceito_por: user.id,
           aceito_em: new Date().toISOString(),
-          status: 'em_transito',
+          status: 'aceito',
         })
         .eq('id', envio.id);
 

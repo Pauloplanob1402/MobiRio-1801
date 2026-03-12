@@ -14,7 +14,6 @@ const History: React.FC = () => {
 
       const userId = auth.user.id;
 
-      // CORRIGIDO: hints explícitos com nome da FK para evitar PGRST201
       const { data, error } = await supabase
         .from('envios')
         .select(`
