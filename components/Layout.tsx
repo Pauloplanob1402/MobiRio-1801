@@ -36,7 +36,6 @@ const Layout: React.FC = () => {
           const fallbackName = user.user_metadata?.nome || user.user_metadata?.full_name || user.email?.split('@')[0] || 'Usuário';
           setUserName(fallbackName);
 
-          // CORRIGIDO: removida referência a fornecedores que não existe mais
           const { data: usuario } = await supabase
             .from('usuarios')
             .select('nome, nome_fantasia')
@@ -74,7 +73,7 @@ const Layout: React.FC = () => {
     { path: '/disponiveis', label: 'Caronas Disponíveis', icon: Truck },
     { path: '/historico', label: 'Histórico', icon: History },
     { path: '/carteira', label: 'Carteira', icon: WalletIcon },
-    { path: '/ajuda', label: 'Ajuda e Regras', icon: HelpCircle },
+    { path: '/ajuda', label: 'Manual do Usuário', icon: HelpCircle },
   ];
 
   return (
