@@ -5,7 +5,7 @@ const About: React.FC = () => {
   return (
     <div className="max-w-4xl mx-auto space-y-12 font-sans pb-10">
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <h2 className="text-3xl font-black text-gray-900 tracking-tight">Ajuda e Informações</h2>
+        <h2 className="text-3xl font-black text-gray-900 tracking-tight">Manual do Usuário</h2>
         <p className="text-gray-500 mt-1 text-lg">Tudo o que você precisa saber sobre o ecossistema Mobirio.</p>
       </div>
 
