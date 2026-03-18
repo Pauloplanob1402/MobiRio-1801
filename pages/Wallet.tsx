@@ -23,7 +23,6 @@ const Wallet: React.FC = () => {
 
       const transactions = movs || [];
 
-      // CORRIGIDO: era mov.valor, a coluna correta é mov.quantidade
       const calculatedBalance = transactions.reduce((acc, mov) => {
         return acc + (mov.quantidade ?? 0);
       }, 0);
@@ -58,7 +57,6 @@ const Wallet: React.FC = () => {
     </div>
   );
 
-  // Determina se movimento é crédito pela quantidade positiva ou negativa
   const isCredito = (mov: any) => (mov.quantidade ?? 0) > 0;
 
   return (
@@ -121,7 +119,6 @@ const Wallet: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                {/* CORRIGIDO: era mov.valor, a coluna correta é mov.quantidade */}
                 <div className={`font-black text-xl ${isCredito(mov) ? 'text-green-600' : 'text-red-600'}`}>
                   {(mov.quantidade ?? 0) > 0 ? '+' : ''}{mov.quantidade}
                 </div>
