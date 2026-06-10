@@ -73,7 +73,7 @@ const Wallet: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="flex justify-center py-20 text-beirario">
+    <div className="flex justify-center py-20 text-movendo">
       <RefreshCw className="animate-spin" size={32} />
     </div>
   );
@@ -88,7 +88,7 @@ const Wallet: React.FC = () => {
       </div>
 
       {/* Saldo principal */}
-      <div className="bg-beirario rounded-[2.5rem] p-8 text-white shadow-2xl shadow-beirario/30">
+      <div className="bg-movendo rounded-[2.5rem] p-8 text-white shadow-2xl shadow-movendo/30">
         <div className="flex items-center gap-3 mb-2">
           <Coins size={20} className="opacity-70" />
           <p className="text-xs font-black uppercase opacity-70 tracking-widest">Saldo disponível</p>
@@ -162,3 +162,4 @@ const Wallet: React.FC = () => {
 };
 
 export default Wallet;
+
