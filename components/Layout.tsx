@@ -16,7 +16,7 @@ import {
 const Layout: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [userName, setUserName] = useState('Usuário');
-  const [fornecedorName, setFornecedorName] = useState('Parceiro Mobirio');
+  const [fornecedorName, setFornecedorName] = useState('Parceiro Movendo Juntos');
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -85,10 +85,10 @@ const Layout: React.FC = () => {
       <aside className={`fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-100 z-30 transition-transform duration-300 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="h-full flex flex-col p-6">
           <div className="flex items-center gap-3 mb-10">
-            <div className="w-10 h-10 bg-beirario flex items-center justify-center rounded-lg shadow-lg">
+            <div className="w-10 h-10 bg-slate-950 flex items-center justify-center rounded-lg shadow-lg">
               <Truck className="text-white" size={24} />
             </div>
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Mobirio</h1>
+            <div><span className="text-xl font-black text-slate-950 tracking-tight">movendo</span><span className="text-xl font-black text-movendo tracking-tight">juntos</span></div>
           </div>
 
           <nav className="flex-1 space-y-1">
@@ -99,7 +99,7 @@ const Layout: React.FC = () => {
                 <Link
                   key={item.path}
                   to={item.path}
-                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${isActive ? 'bg-beirario text-white shadow-md' : 'text-gray-500 hover:bg-beirario-light hover:text-beirario'}`}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all font-medium ${isActive ? 'bg-movendo text-white shadow-md shadow-movendo/20' : 'text-gray-500 hover:bg-orange-50 hover:text-movendo'}`}
                   onClick={() => setIsSidebarOpen(false)}
                 >
                   <Icon size={20} />
@@ -113,9 +113,9 @@ const Layout: React.FC = () => {
             <div className="mb-4 px-4">
               <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Perfil</p>
               <p className="text-sm font-bold text-gray-900 mt-1 truncate">{userName}</p>
-              <p className="text-[10px] text-beirario font-bold uppercase truncate">{fornecedorName}</p>
+              <p className="text-[10px] text-movendo font-bold uppercase truncate">{fornecedorName}</p>
             </div>
-            <button onClick={handleSignOut} className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-500 hover:bg-gray-50 hover:text-red-600 rounded-xl transition-all">
+            <button onClick={handleSignOut} className="flex items-center gap-3 px-4 py-3 w-full text-left text-gray-500 hover:bg-gray-50 hover:text-movendo rounded-xl transition-all">
               <LogOut size={20} />
               Sair
             </button>
@@ -129,7 +129,7 @@ const Layout: React.FC = () => {
             <Menu size={24} />
           </button>
           <div className="flex items-center gap-4">
-            <span className="text-xs font-semibold text-gray-400 bg-gray-50 px-3 py-1 rounded-full border border-gray-100 uppercase tracking-wider">Unidades Beira Rio</span>
+            <span className="text-xs font-bold text-movendo bg-movendo-light px-3 py-1 rounded-full border border-orange-200 uppercase tracking-wider">Movendo Juntos</span>
           </div>
         </header>
 
