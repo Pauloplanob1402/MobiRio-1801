@@ -6,28 +6,28 @@ const About: React.FC = () => {
     <div className="max-w-4xl mx-auto space-y-12 font-sans pb-10">
       <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
         <h2 className="text-3xl font-black text-gray-900 tracking-tight">Manual do Usuário</h2>
-        <p className="text-gray-500 mt-1 text-lg">Tudo o que você precisa saber sobre o ecossistema Mobirio.</p>
+        <p className="text-gray-500 mt-1 text-lg">Tudo o que você precisa saber sobre a rede Movendo Juntos.</p>
       </div>
 
       {/* Seção 1 — COMO FUNCIONA O MOBIRIO */}
       <section className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm animate-in fade-in duration-700 delay-100">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-beirario-light text-beirario rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-movendo-light text-movendo rounded-lg flex items-center justify-center">
             <BookOpen size={20} />
           </div>
-          <h3 className="text-xl font-bold text-gray-900">Como funciona o Mobirio</h3>
+          <h3 className="text-xl font-bold text-gray-900">Como funciona o Movendo Juntos</h3>
         </div>
         <div className="space-y-4 text-gray-600 leading-relaxed">
           <div>
-            <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">O que é o Mobirio</p>
-            <p>O Mobirio é uma plataforma de logística colaborativa que organiza caronas entre fornecedores e unidades produtivas para o transporte de amostras, envelopes, protótipos, fechamentos, reposições e pequenos volumes.</p>
+            <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">O que é o Movendo Juntos</p>
+            <p>O Movendo Juntos é uma plataforma de logística colaborativa que organiza caronas entre fornecedores e outros usuários para o transporte de amostras, envelopes, protótipos, fechamentos, reposições e pequenos volumes.</p>
             <p className="mt-2">O objetivo é simples: aproveitar deslocamentos que já existem, reduzindo custos operacionais indiretos e o impacto ambiental de envios isolados. Nem todo pequeno volume precisa ir sozinho.</p>
           </div>
 
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Princípios</p>
             <p>Simplicidade, agilidade, sustentabilidade e colaboração.</p>
-            <p className="mt-2">O Mobirio não é uma plataforma comercial. É uma ferramenta de organização operacional. Seu foco é o movimento eficiente, não a geração de receita entre participantes.</p>
+            <p className="mt-2">O Movendo Juntos não é uma plataforma comercial. É uma ferramenta de organização operacional. Seu foco é o movimento eficiente, não a geração de receita entre participantes.</p>
           </div>
 
           <div>
@@ -37,13 +37,13 @@ const About: React.FC = () => {
               <li>Outro participante visualiza e aceita a carona</li>
               <li>O envio segue junto em um deslocamento que já aconteceria</li>
               <li>Após a confirmação da entrega:
-                <div className="mt-1 pl-2 border-l-2 border-beirario/20">
+                <div className="mt-1 pl-2 border-l-2 border-movendo/30">
                   <span className="font-bold text-gray-900">Quem deu a carona recebe +1 MOVE</span><br />
                   <span className="font-bold text-gray-900">Quem usou a carona utiliza -1 MOVE</span>
                 </div>
               </li>
             </ul>
-            <p className="mt-4 italic text-beirario font-bold">MOVE não é dinheiro. MOVE é o registro auditável de uma ação colaborativa real.</p>
+            <p className="mt-4 italic text-movendo font-bold">MOVE não é dinheiro. MOVE é o registro auditável de uma ação colaborativa real.</p>
           </div>
 
           <div>
@@ -57,27 +57,27 @@ const About: React.FC = () => {
       {/* Seção 2 — FISCAL, NOTAS E DOCUMENTOS */}
       <section className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm animate-in fade-in duration-700 delay-200">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-beirario-light text-beirario rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-movendo-light text-movendo rounded-lg flex items-center justify-center">
             <FileText size={20} />
           </div>
           <h3 className="text-xl font-bold text-gray-900">Responsabilidade fiscal e documentos</h3>
         </div>
         <div className="space-y-4 text-gray-600 leading-relaxed">
           <div>
-            <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">O que o Mobirio não é</p>
-            <p>O Mobirio não é transportadora, não é operador logístico, não é meio de pagamento e não intermedia valores comerciais entre as partes.</p>
+            <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">O que o Movendo Juntos não é</p>
+            <p>O Movendo Juntos não é transportadora, não é operador logístico, não é meio de pagamento e não intermedia valores comerciais entre as partes.</p>
             <p className="mt-2">A plataforma organiza a carona. A responsabilidade pela mercadoria, pelos documentos fiscais e pelas obrigações legais permanece integralmente com cada empresa participante.</p>
           </div>
 
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Notas fiscais e documentos</p>
-            <p>Cada empresa emite seus próprios documentos fiscais conforme sua obrigação legal. O Mobirio não substitui NF-e, NFS-e, CT-e, DANFE ou qualquer outro documento exigido pela legislação tributária brasileira.</p>
-            <p className="mt-2">Se um documento já era necessário antes do Mobirio, ele continua sendo. Se não era, o uso da plataforma não cria nenhuma nova obrigação documental.</p>
+            <p>Cada empresa emite seus próprios documentos fiscais conforme sua obrigação legal. O Movendo Juntos não substitui NF-e, NFS-e, CT-e, DANFE ou qualquer outro documento exigido pela legislação tributária brasileira.</p>
+            <p className="mt-2">Se um documento já era necessário antes do Movendo Juntos, ele continua sendo. Se não era, o uso da plataforma não cria nenhuma nova obrigação documental.</p>
           </div>
 
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Sigilo comercial entre concorrentes</p>
-            <p>O Mobirio reconhece que fornecedores concorrentes podem compartilhar a mesma carona. Para preservar o sigilo comercial de cada empresa, recomendamos:</p>
+            <p>O Movendo Juntos reconhece que fornecedores concorrentes podem compartilhar a mesma carona. Para preservar o sigilo comercial de cada empresa, recomendamos:</p>
             <ul className="list-disc pl-5 space-y-2 mt-2">
               <li><span className="font-bold text-gray-800">Envelope lacrado:</span> sempre que possível, a mercadoria e seus documentos devem ser acondicionados em embalagem fechada, impedindo o acesso visual a valores, quantidades ou informações comerciais por parte de quem realiza o transporte.</li>
               <li><span className="font-bold text-gray-800">NF-e por e-mail:</span> a nota fiscal eletrônica pode ser enviada diretamente ao destinatário por e-mail, sem necessidade de documento impresso junto à mercadoria.</li>
@@ -85,7 +85,7 @@ const About: React.FC = () => {
               <li><span className="font-bold text-gray-800">Omissão de dados sensíveis:</span> evite expor preços, condições comerciais, volumes ou qualquer informação estratégica durante o processo de carona.</li>
             </ul>
             <p className="mt-3 text-xs bg-amber-50 border border-amber-100 text-amber-800 p-3 rounded-xl font-bold">
-              ⚠️ O Mobirio não exibe valores comerciais para terceiros. Nenhuma informação financeira é visível na plataforma além do necessário para identificar o envio.
+              ⚠️ O Movendo Juntos não exibe valores comerciais para terceiros. Nenhuma informação financeira é visível na plataforma além do necessário para identificar o envio.
             </p>
           </div>
         </div>
@@ -94,7 +94,7 @@ const About: React.FC = () => {
       {/* Seção 3 — TRANSPARÊNCIA, COLABORAÇÃO E CONCORRÊNCIA */}
       <section className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm animate-in fade-in duration-700 delay-300">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-beirario-light text-beirario rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-movendo-light text-movendo rounded-lg flex items-center justify-center">
             <Users size={20} />
           </div>
           <h3 className="text-xl font-bold text-gray-900">Transparência, colaboração e concorrência</h3>
@@ -102,13 +102,13 @@ const About: React.FC = () => {
         <div className="space-y-4 text-gray-600 leading-relaxed">
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Neutralidade da plataforma</p>
-            <p>O Mobirio é estritamente neutro. Não compara preços, não expõe condições comerciais, não interfere em negociações e não favorece nenhum participante em detrimento de outro.</p>
+            <p>O Movendo Juntos é estritamente neutro. Não compara preços, não expõe condições comerciais, não interfere em negociações e não favorece nenhum participante em detrimento de outro.</p>
             <p className="mt-2">Cada participante visualiza apenas as informações necessárias para executar a carona: nome do solicitante, endereço de coleta e destino. Nada além disso.</p>
           </div>
 
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Conformidade com a Lei de Defesa da Concorrência</p>
-            <p>O uso do Mobirio não implica qualquer forma de combinação de preços, divisão de mercado ou troca de informações concorrencialmente sensíveis entre participantes.</p>
+            <p>O uso do Movendo Juntos não implica qualquer forma de combinação de preços, divisão de mercado ou troca de informações concorrencialmente sensíveis entre participantes.</p>
             <p className="mt-2">A plataforma foi desenhada para que o único ponto de contato entre concorrentes seja a execução logística da carona, sem qualquer exposição de dados comerciais estratégicos, em conformidade com a Lei nº 12.529/2011 (Lei de Defesa da Concorrência).</p>
           </div>
 
@@ -128,7 +128,7 @@ const About: React.FC = () => {
       {/* Seção 4 — LGPD E PROTEÇÃO DE DADOS */}
       <section className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm animate-in fade-in duration-700 delay-400">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-beirario-light text-beirario rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-movendo-light text-movendo rounded-lg flex items-center justify-center">
             <ShieldCheck size={20} />
           </div>
           <h3 className="text-xl font-bold text-gray-900">LGPD e proteção de dados</h3>
@@ -136,12 +136,12 @@ const About: React.FC = () => {
         <div className="space-y-4 text-gray-600 leading-relaxed">
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Base legal do tratamento</p>
-            <p>O tratamento de dados no Mobirio é realizado com base no legítimo interesse operacional e no consentimento do usuário no momento do cadastro, em conformidade com a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados — LGPD).</p>
+            <p>O tratamento de dados no Movendo Juntos é realizado com base no legítimo interesse operacional e no consentimento do usuário no momento do cadastro, em conformidade com a Lei nº 13.709/2018 (Lei Geral de Proteção de Dados — LGPD).</p>
           </div>
 
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Dados coletados</p>
-            <p>O Mobirio coleta e utiliza apenas os dados estritamente necessários para o funcionamento da plataforma:</p>
+            <p>O Movendo Juntos coleta e utiliza apenas os dados estritamente necessários para o funcionamento da plataforma:</p>
             <ul className="list-disc pl-5 mt-2 space-y-1">
               <li>Nome da empresa e nome de contato</li>
               <li>Endereço de e-mail (para autenticação)</li>
@@ -152,7 +152,7 @@ const About: React.FC = () => {
 
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Compromissos da plataforma</p>
-            <p>O Mobirio compromete-se a:</p>
+            <p>O Movendo Juntos compromete-se a:</p>
             <ul className="list-disc pl-5 mt-2 space-y-1">
               <li>Não vender, alugar ou comercializar dados pessoais</li>
               <li>Não compartilhar dados com terceiros sem consentimento explícito</li>
@@ -179,7 +179,7 @@ const About: React.FC = () => {
       {/* Seção 5 — RESPONSABILIDADES E LIMITAÇÕES */}
       <section className="bg-white p-8 rounded-2xl border border-gray-100 shadow-sm animate-in fade-in duration-700 delay-500">
         <div className="flex items-center gap-3 mb-6">
-          <div className="w-10 h-10 bg-beirario-light text-beirario rounded-lg flex items-center justify-center">
+          <div className="w-10 h-10 bg-movendo-light text-movendo rounded-lg flex items-center justify-center">
             <Lock size={20} />
           </div>
           <h3 className="text-xl font-bold text-gray-900">Responsabilidades e limitações</h3>
@@ -187,18 +187,18 @@ const About: React.FC = () => {
         <div className="space-y-4 text-gray-600 leading-relaxed">
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Responsabilidade pelo envio</p>
-            <p>O Mobirio organiza a carona, mas não assume responsabilidade pelo conteúdo transportado, por avarias, extravios, atrasos ou qualquer dano decorrente do transporte.</p>
+            <p>O Movendo Juntos organiza a carona, mas não assume responsabilidade pelo conteúdo transportado, por avarias, extravios, atrasos ou qualquer dano decorrente do transporte.</p>
             <p className="mt-2">A responsabilidade pela integridade da mercadoria é das partes envolvidas na carona — solicitante e transportador voluntário.</p>
           </div>
 
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Uso adequado da plataforma</p>
-            <p>O Mobirio é destinado exclusivamente ao transporte de pequenos volumes no contexto operacional entre fornecedores e unidades produtivas. É vedado o uso da plataforma para transporte de cargas que exijam licenças especiais, produtos perigosos, inflamáveis, controlados ou qualquer item cuja movimentação exija documentação específica além da NF-e padrão.</p>
+            <p>O Movendo Juntos é destinado exclusivamente ao transporte de pequenos volumes no contexto operacional entre fornecedores e outros usuários. É vedado o uso da plataforma para transporte de cargas que exijam licenças especiais, produtos perigosos, inflamáveis, controlados ou qualquer item cuja movimentação exija documentação específica além da NF-e padrão.</p>
           </div>
 
           <div>
             <p className="font-bold text-gray-800 text-sm uppercase tracking-wider mb-1">Isenção de responsabilidade comercial</p>
-            <p>O Mobirio não é parte em nenhuma negociação comercial entre os participantes. Qualquer acordo, conflito ou responsabilidade de natureza comercial é exclusivo entre as empresas envolvidas, sem qualquer participação ou responsabilidade da plataforma.</p>
+            <p>O Movendo Juntos não é parte em nenhuma negociação comercial entre os participantes. Qualquer acordo, conflito ou responsabilidade de natureza comercial é exclusivo entre as empresas envolvidas, sem qualquer participação ou responsabilidade da plataforma.</p>
           </div>
         </div>
       </section>
