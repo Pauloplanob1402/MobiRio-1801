@@ -113,7 +113,7 @@ const MyShipments: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="flex justify-center py-20 text-beirario">
+    <div className="flex justify-center py-20 text-movendo">
       <RefreshCw className="animate-spin" size={32} />
     </div>
   );
@@ -147,7 +147,7 @@ const MyShipments: React.FC = () => {
               {t === 'solicitados' ? <Package size={14} /> : <Truck size={14} />}
               {t === 'solicitados' ? 'Meus Pedidos' : 'Transportando'}
               {count > 0 && (
-                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${tab === t ? 'bg-beirario text-white' : 'bg-gray-200 text-gray-500'}`}>
+                <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-black ${tab === t ? 'bg-movendo text-white' : 'bg-gray-200 text-gray-500'}`}>
                   {count}
                 </span>
               )}
@@ -173,7 +173,7 @@ const MyShipments: React.FC = () => {
             return (
               <div key={envio.id} className={`bg-white rounded-3xl border shadow-sm overflow-hidden ${envio.status === 'entregue' ? 'opacity-70' : ''}`}>
                 {/* Status bar */}
-                <div className={`px-5 py-2 flex items-center justify-between ${envio.status === 'entregue' ? 'bg-green-500' : envio.status === 'cancelado' ? 'bg-gray-300' : 'bg-beirario'}`}>
+                <div className={`px-5 py-2 flex items-center justify-between ${envio.status === 'entregue' ? 'bg-green-500' : envio.status === 'cancelado' ? 'bg-gray-300' : 'bg-movendo'}`}>
                   <span className="text-white text-[10px] font-black uppercase">{st.label}</span>
                   <span className="text-white/60 text-[9px]">
                     {new Date(envio.created_at).toLocaleDateString('pt-BR')}
@@ -249,3 +249,4 @@ const MyShipments: React.FC = () => {
 };
 
 export default MyShipments;
+
