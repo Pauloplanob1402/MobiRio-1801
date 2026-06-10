@@ -1,4 +1,3 @@
-
 export type StatusEnvio = 'disponivel' | 'aceito' | 'em_transito' | 'entregue' | 'cancelado';
 
 export interface Unidade {
@@ -32,17 +31,21 @@ export interface Usuario {
 export interface Envio {
   id: string;
   fornecedor_id: string | null;
-  unidade_id: string;
+  unidade_id: string | null;       // null quando destino é livre
+  destino_livre: string;            // novo: destino em texto livre
   descricao: string;
   status: StatusEnvio;
   created_at: string;
   aceito_por?: string | null;
   aceito_em?: string | null;
   solicitante_id: string;
+  entregador_id?: string | null;    // novo: quem aceitou a carona
   // Joins
   unidade?: { nome: string };
   fornecedor?: { nome_fantasia: string; endereco: string };
   aceitador?: { nome: string };
+  solicitante?: { nome: string; endereco: string };
+  entregador?: { nome: string };
 }
 
 export interface MovimentoCredito {
@@ -55,5 +58,6 @@ export interface MovimentoCredito {
   created_at: string;
   envios?: {
     descricao: string;
+    destino_livre?: string;
   };
 }
