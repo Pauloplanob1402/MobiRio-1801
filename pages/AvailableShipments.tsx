@@ -90,7 +90,7 @@ const AvailableShipments: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="flex justify-center py-20 text-beirario">
+    <div className="flex justify-center py-20 text-movendo">
       <RefreshCw className="animate-spin" size={32} />
     </div>
   );
@@ -119,7 +119,7 @@ const AvailableShipments: React.FC = () => {
             <div key={envio.id} className="bg-white rounded-3xl border border-gray-100 shadow-sm hover:shadow-xl transition-all flex flex-col overflow-hidden">
 
               {/* Header */}
-              <div className="bg-beirario px-5 py-4 flex items-center justify-between">
+              <div className="bg-movendo px-5 py-4 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 bg-white/20 rounded-full flex items-center justify-center">
                     <User size={14} className="text-white" />
@@ -179,7 +179,7 @@ const AvailableShipments: React.FC = () => {
                 <button
                   onClick={() => handleAccept(envio)}
                   disabled={aceitando === envio.id}
-                  className="w-full bg-black hover:bg-beirario text-white py-4 rounded-2xl font-black uppercase text-xs transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50"
+                  className="w-full bg-black hover:bg-movendo text-white py-4 rounded-2xl font-black uppercase text-xs transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95 disabled:opacity-50"
                 >
                   {aceitando === envio.id
                     ? <RefreshCw className="animate-spin" size={16} />
@@ -197,3 +197,4 @@ const AvailableShipments: React.FC = () => {
 };
 
 export default AvailableShipments;
+
