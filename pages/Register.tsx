@@ -90,12 +90,12 @@ const Register: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans">
-      <div className="hidden lg:flex lg:w-1/2 bg-beirario items-center justify-center p-12 text-white">
+      <div className="hidden lg:flex lg:w-1/2 bg-slate-950 items-center justify-center p-12 text-white">
         <div className="max-w-md text-center flex flex-col items-center">
           <Truck size={80} className="mb-8" />
-          <h1 className="text-6xl font-black mb-4 tracking-tighter">Mobirio</h1>
-          <p className="text-xl italic opacity-80">"Organizando fluxos. Movendo juntos."</p>
-          <div className="mt-10 bg-white/10 p-4 rounded-xl border border-white/10">
+          <div className="mb-4"><p className="text-5xl font-black tracking-tighter leading-tight">movendo</p><p className="text-5xl font-black tracking-tighter text-movendo">juntos</p></div>
+          <p className="text-xl italic opacity-80">"Fretes colaborativos. Mova mais."</p>
+          <div className="mt-10 bg-movendo/20 p-4 rounded-xl border border-movendo/30">
             <p className="text-sm font-bold">Receba 12 MOVE iniciais ao entrar na rede.</p>
           </div>
         </div>
@@ -162,13 +162,13 @@ const Register: React.FC = () => {
               </div>
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-beirario hover:bg-beirario-dark text-white font-bold py-4 rounded-xl shadow-lg mt-4 disabled:opacity-50 transition-all">
+            <button type="submit" disabled={loading} className="w-full bg-movendo hover:bg-movendo-dark text-white font-bold py-4 rounded-xl shadow-lg mt-4 disabled:opacity-50 transition-all">
               {loading ? 'Processando...' : 'Finalizar Cadastro e Ganhar 12 MOVE'}
             </button>
           </form>
 
           <p className="mt-6 text-center text-gray-500 text-sm">
-            Já possui acesso? <Link to="/login" className="text-beirario font-bold">Entrar agora</Link>
+            Já possui acesso? <Link to="/login" className="text-movendo font-bold">Entrar agora</Link>
           </p>
         </div>
       </div>
@@ -177,3 +177,4 @@ const Register: React.FC = () => {
 };
 
 export default Register;
+
