@@ -10,7 +10,9 @@ import {
   LogOut,
   Menu,
   Wallet as WalletIcon,
-  HelpCircle
+  HelpCircle,
+  Navigation,
+  Route
 } from 'lucide-react';
 
 const Layout: React.FC = () => {
@@ -68,9 +70,11 @@ const Layout: React.FC = () => {
 
   const menuItems = [
     { path: '/', label: 'Painel', icon: LayoutDashboard },
-    { path: '/criar', label: 'Novo Envio', icon: PackagePlus },
+    { path: '/criar', label: 'Preciso trazer algo', icon: PackagePlus },
+    { path: '/declarar-rota', label: 'Vou passar por lá', icon: Navigation },
     { path: '/meus-envios', label: 'Minhas Atividades', icon: PackageCheck },
-    { path: '/disponiveis', label: 'Caronas Disponíveis', icon: Truck },
+    { path: '/disponiveis', label: 'Pedidos disponíveis', icon: Truck },
+    { path: '/rotas', label: 'Rotas ativas', icon: Route },
     { path: '/historico', label: 'Histórico', icon: History },
     { path: '/carteira', label: 'Carteira', icon: WalletIcon },
     { path: '/ajuda', label: 'Manual do Usuário', icon: HelpCircle },
