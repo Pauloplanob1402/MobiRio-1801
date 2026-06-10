@@ -42,7 +42,7 @@ const History: React.FC = () => {
   }, [fetchHistory]);
 
   if (loading) return (
-    <div className="flex justify-center py-20 text-beirario">
+    <div className="flex justify-center py-20 text-movendo">
       <RefreshCw className="animate-spin" size={32} />
     </div>
   );
