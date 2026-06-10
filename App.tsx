@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { supabase } from './lib/supabaseClient';
@@ -7,6 +6,8 @@ import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
 import CreateShipment from './pages/CreateShipment';
 import AvailableShipments from './pages/AvailableShipments';
+import AvailableRoutes from './pages/AvailableRoutes';
+import DeclareRoute from './pages/DeclareRoute';
 import MyShipments from './pages/MyShipments';
 import History from './pages/History';
 import Wallet from './pages/Wallet';
@@ -19,7 +20,6 @@ const App: React.FC = () => {
 
   const ensureProfile = async (user: any) => {
     if (!user) return;
-
     try {
       const { data: profile } = await supabase
         .from('usuarios')
@@ -29,8 +29,6 @@ const App: React.FC = () => {
 
       if (!profile) {
         const displayName = user.user_metadata?.full_name || user.email.split('@')[0];
-        
-        // Criar registro na tabela 'usuarios' com 12 créditos iniciais e fornecedor_id vinculado
         await supabase.from('usuarios').insert({
           id: user.id,
           fornecedor_id: user.id,
@@ -39,8 +37,6 @@ const App: React.FC = () => {
           telefone: '(00) 00000-0000',
           creditos: 12
         });
-
-        // Registrar no histórico de créditos
         await supabase.from('movimentos_credito').insert({
           usuario_id: user.id,
           quantidade: 12,
@@ -48,97 +44,72 @@ const App: React.FC = () => {
           envio_id: null
         });
       } else {
-        // Correção de dados para perfis existentes (Garante fornecedor_id e saldo inicial)
         let updates: any = {};
-        
-        if (profile.fornecedor_id === null) {
-          updates.fornecedor_id = user.id;
-        }
-
+        if (profile.fornecedor_id === null) updates.fornecedor_id = user.id;
         if (profile.creditos === null || profile.creditos === 0) {
           const { data: movements } = await supabase
-            .from('movimentos_credito')
-            .select('id')
-            .eq('usuario_id', user.id)
-            .limit(1);
-          
+            .from('movimentos_credito').select('id').eq('usuario_id', user.id).limit(1);
           if (!movements || movements.length === 0) {
             updates.creditos = 12;
             await supabase.from('movimentos_credito').insert({
-              usuario_id: user.id,
-              quantidade: 12,
-              tipo: 'CREDITO',
-              envio_id: null
+              usuario_id: user.id, quantidade: 12, tipo: 'CREDITO', envio_id: null
             });
           }
         }
-
         if (Object.keys(updates).length > 0) {
           await supabase.from('usuarios').update(updates).eq('id', user.id);
         }
       }
     } catch (err: any) {
-      console.error("Erro no provisionamento de perfil:", err);
+      console.error('Erro no provisionamento de perfil:', err);
     }
   };
 
   useEffect(() => {
     let mounted = true;
-
-    const initializeAuth = async () => {
+    const init = async () => {
       try {
-        const { data: { session: initialSession } } = await supabase.auth.getSession();
-        
+        const { data: { session: s } } = await supabase.auth.getSession();
         if (mounted) {
-          setSession(initialSession);
-          setLoading(false); 
-          if (initialSession) ensureProfile(initialSession.user);
+          setSession(s);
+          setLoading(false);
+          if (s) ensureProfile(s.user);
         }
-      } catch (err: any) {
-        console.error("Erro na inicialização da autenticação:", err);
+      } catch {
         if (mounted) setLoading(false);
       }
     };
-
-    initializeAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (mounted) {
-        setSession(session);
-        if (session) ensureProfile(session.user);
-      }
+    init();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, s) => {
+      if (mounted) { setSession(s); if (s) ensureProfile(s.user); }
     });
-
-    return () => {
-      mounted = false;
-      if (subscription) subscription.unsubscribe();
-    };
+    return () => { mounted = false; subscription.unsubscribe(); };
   }, []);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen bg-white">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-beirario"></div>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-screen bg-white">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-movendo"></div>
+    </div>
+  );
 
   return (
     <HashRouter>
       <Routes>
-        <Route path="/login" element={!session ? <Login /> : <Navigate to="/" />} />
+        <Route path="/login"    element={!session ? <Login />    : <Navigate to="/" />} />
         <Route path="/register" element={!session ? <Register /> : <Navigate to="/" />} />
-        
+
         <Route element={session ? <Layout /> : <Navigate to="/login" />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/criar" element={<CreateShipment />} />
-          <Route path="/disponiveis" element={<AvailableShipments />} />
-          <Route path="/meus-envios" element={<MyShipments />} />
-          <Route path="/historico" element={<History />} />
-          <Route path="/carteira" element={<Wallet />} />
-          <Route path="/ajuda" element={<About />} />
+          <Route path="/"               element={<Dashboard />} />
+          <Route path="/criar"          element={<CreateShipment />} />
+          <Route path="/disponiveis"    element={<AvailableShipments />} />
+          <Route path="/rotas"          element={<AvailableRoutes />} />
+          <Route path="/declarar-rota"  element={<DeclareRoute />} />
+          <Route path="/meus-envios"    element={<MyShipments />} />
+          <Route path="/historico"      element={<History />} />
+          <Route path="/carteira"       element={<Wallet />} />
+          <Route path="/ajuda"          element={<About />} />
         </Route>
-        
+
         <Route path="*" element={<Navigate to="/" />} />
       </Routes>
     </HashRouter>
@@ -146,3 +117,4 @@ const App: React.FC = () => {
 };
 
 export default App;
+
