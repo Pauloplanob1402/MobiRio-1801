@@ -72,7 +72,7 @@ const Dashboard: React.FC = () => {
 
   if (loading) return (
     <div className="flex justify-center py-20">
-      <RefreshCw className="animate-spin text-beirario" size={32} />
+      <RefreshCw className="animate-spin text-movendo" size={32} />
     </div>
   );
 
@@ -81,11 +81,11 @@ const Dashboard: React.FC = () => {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h2 className="text-4xl font-black text-gray-900 tracking-tight uppercase">Painel de Controle</h2>
-          <p className="text-gray-500 mt-1 font-medium">Ecossistema logístico Grupo Beira Rio.</p>
+          <p className="text-gray-500 mt-1 font-medium">Sua rede colaborativa de fretes.</p>
         </div>
         <Link
           to="/criar"
-          className="bg-beirario hover:bg-beirario-dark text-white px-8 py-4 rounded-2xl font-black uppercase shadow-xl shadow-beirario/20 transition-all flex items-center justify-center gap-2 active:scale-95"
+          className="bg-movendo hover:bg-movendo-dark text-white px-8 py-4 rounded-2xl font-black uppercase shadow-xl shadow-movendo/20 transition-all flex items-center justify-center gap-2 active:scale-95"
         >
           <Package size={20} />
           Solicitar Carona
@@ -101,7 +101,7 @@ const Dashboard: React.FC = () => {
       <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden shadow-sm">
         <div className="px-8 py-6 border-b border-gray-50 flex items-center justify-between">
           <h3 className="font-black text-gray-900 uppercase text-xs tracking-tight">Atividade Recente</h3>
-          <Link to="/meus-envios" className="text-xs text-beirario font-black hover:underline uppercase flex items-center gap-1">
+          <Link to="/meus-envios" className="text-xs text-movendo font-black hover:underline uppercase flex items-center gap-1">
             Ver tudo <ChevronRight size={14} />
           </Link>
         </div>
