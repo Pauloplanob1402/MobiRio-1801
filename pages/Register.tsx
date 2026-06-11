@@ -1,85 +1,41 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Truck, Mail, Lock, User, FileText, MapPin, Phone, AlertCircle } from 'lucide-react';
+import { Truck, Mail, Lock, User, FileText, MapPin, Phone, AlertCircle, ArrowRight } from 'lucide-react';
+
+const maskCNPJ = (v: string) => v.replace(/\D/g,'').replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1/$2').replace(/(\d{4})(\d)/,'$1-$2').substring(0,18);
+const maskPhone = (v: string) => v.replace(/\D/g,'').replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2').substring(0,15);
 
 const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError]     = useState<string | null>(null);
+  const [step, setStep]       = useState(1);
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    nome: '',
-    email: '',
-    senha: '',
-    cnpj: '',
-    endereco: '',
-    telefone: ''
-  });
+  const [form, setForm] = useState({ nome: '', email: '', senha: '', cnpj: '', endereco: '', telefone: '' });
 
-  const maskCNPJ = (value: string) => {
-    return value
-      .replace(/\D/g, '')
-      .replace(/^(\d{2})(\d)/, '$1.$2')
-      .replace(/^(\d{2})\.(\d{3})(\d)/, '$1.$2.$3')
-      .replace(/\.(\d{3})(\d)/, '.$1/$2')
-      .replace(/(\d{4})(\d)/, '$1-$2')
-      .substring(0, 18);
-  };
-
-  const maskPhone = (value: string) => {
-    return value
-      .replace(/\D/g, '')
-      .replace(/^(\d{2})(\d)/, '($1) $2')
-      .replace(/(\d{5})(\d)/, '$1-$2')
-      .substring(0, 15);
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (name === 'cnpj') {
-      setFormData(prev => ({ ...prev, cnpj: maskCNPJ(value) }));
-    } else if (name === 'telefone') {
-      setFormData(prev => ({ ...prev, telefone: maskPhone(value) }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
+  const set = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    setError(null);
-
+    setLoading(true); setError(null);
     try {
-      // 1. Criar usuário no Auth
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.senha,
-        options: { data: { nome: formData.nome } }
+      const { data: auth, error: ae } = await supabase.auth.signUp({
+        email: form.email, password: form.senha,
+        options: { data: { nome: form.nome } }
       });
+      if (ae) throw ae;
+      if (!auth.user) throw new Error('Erro na autenticação.');
 
-      if (authError) throw authError;
-      if (!authData.user) throw new Error("Erro na autenticação.");
-
-      // 2. Criar perfil em usuarios — tabela única, sem fornecedores
-      // CORRIGIDO: removida inserção em 'fornecedores' que não existe mais
-      const { error: profileError } = await supabase.from('usuarios').insert({
-        id: authData.user.id,
-        nome: formData.nome,
-        nome_fantasia: formData.nome,
-        razao_social: formData.nome.toUpperCase() + ' LTDA',
-        email: formData.email,
-        telefone: formData.telefone,
-        cnpj: formData.cnpj,
-        endereco: formData.endereco,
+      const { error: pe } = await supabase.from('usuarios').insert({
+        id: auth.user.id,
+        nome: form.nome, nome_fantasia: form.nome,
+        razao_social: form.nome.toUpperCase() + ' LTDA',
+        email: form.email, telefone: form.telefone,
+        cnpj: form.cnpj, endereco: form.endereco,
       });
+      if (pe) throw pe;
 
-      if (profileError) throw profileError;
-
-      // Os 12 MOVE são creditados automaticamente pelo trigger fn_inicializar_move_usuario
-
-      alert('Cadastro realizado! Você ganhou 12 MOVE para começar.');
       navigate('/');
     } catch (err: any) {
       setError(err.message || 'Erro ao realizar cadastro.');
@@ -88,87 +44,131 @@ const Register: React.FC = () => {
     }
   };
 
+  const inputClass = "w-full pl-10 pr-4 py-3.5 bg-gray-50 border border-gray-100 rounded-2xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-movendo/20 focus:border-movendo transition-all";
+
   return (
-    <div className="min-h-screen bg-white flex flex-col lg:flex-row font-sans">
-      <div className="hidden lg:flex lg:w-1/2 bg-slate-950 items-center justify-center p-12 text-white">
-        <div className="max-w-md text-center flex flex-col items-center">
-          <Truck size={80} className="mb-8" />
-          <div className="mb-4"><p className="text-5xl font-black tracking-tighter leading-tight">movendo</p><p className="text-5xl font-black tracking-tighter text-movendo">juntos</p></div>
-          <p className="text-xl italic opacity-80">"Fretes colaborativos. Mova mais."</p>
-          <div className="mt-10 bg-movendo/20 p-4 rounded-xl border border-movendo/30">
-            <p className="text-sm font-bold">Receba 12 MOVE iniciais ao entrar na rede.</p>
+    <div className="min-h-screen bg-white flex font-sans">
+
+      {/* Lado esquerdo */}
+      <div className="hidden lg:flex lg:w-[45%] bg-slate-950 flex-col justify-center p-12 relative overflow-hidden">
+        <div className="absolute inset-0 opacity-5"
+          style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #EA580C 1px, transparent 0)', backgroundSize: '32px 32px' }}
+        />
+        <div className="relative">
+          <div className="flex items-center gap-3 mb-12">
+            <div className="w-10 h-10 bg-movendo rounded-xl flex items-center justify-center">
+              <Truck size={20} className="text-white" />
+            </div>
+            <span className="text-xl font-black">
+              <span className="text-white">movendo</span><span className="text-movendo">juntos</span>
+            </span>
+          </div>
+          <h1 className="text-4xl font-black text-white leading-tight">
+            Faça parte<br />da rede.
+          </h1>
+          <p className="text-white/40 mt-4 text-base leading-relaxed">
+            Cadastre-se e ganhe<br /><span className="text-movendo font-black text-2xl">12 MOVE</span><br />para começar.
+          </p>
+          <div className="mt-10 space-y-3">
+            {['Sem mensalidade', 'Sem taxa por entrega', 'MOVE não é dinheiro'].map(t => (
+              <div key={t} className="flex items-center gap-2 text-white/50 text-sm">
+                <div className="w-1.5 h-1.5 rounded-full bg-movendo"></div>{t}
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex items-center justify-center p-6 lg:p-12 overflow-y-auto">
-        <div className="w-full max-w-lg">
-          <h2 className="text-3xl font-bold text-gray-900 mb-6">Cadastre sua Empresa</h2>
+      {/* Formulário */}
+      <div className="flex-1 flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
+        <div className="w-full max-w-md">
+
+          <div className="lg:hidden flex items-center gap-2 mb-8">
+            <div className="w-9 h-9 bg-slate-950 rounded-xl flex items-center justify-center">
+              <Truck size={18} className="text-movendo" />
+            </div>
+            <span className="text-lg font-black">
+              <span className="text-slate-950">movendo</span><span className="text-movendo">juntos</span>
+            </span>
+          </div>
+
+          <h2 className="text-3xl font-black text-gray-900 tracking-tight mb-1">Criar conta</h2>
+          <p className="text-gray-400 text-sm mb-8">Preencha seus dados para entrar na rede.</p>
 
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm">
-              <AlertCircle size={18} /> {error}
+            <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-100 text-red-600 text-sm px-4 py-3 rounded-2xl">
+              <AlertCircle size={16} className="shrink-0" /> {error}
             </div>
           )}
 
           <form onSubmit={handleRegister} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold text-gray-700 uppercase">Nome da Empresa</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Nome / Empresa</label>
                 <div className="relative">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input name="nome" type="text" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Nome da sua Empresa" required value={formData.nome} onChange={handleChange} />
+                  <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" required className={inputClass} placeholder="Seu nome ou empresa"
+                    value={form.nome} onChange={e => set('nome', e.target.value)} />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700 uppercase">Email Corporativo</label>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">E-mail</label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input name="email" type="email" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="empresa@email.com" required value={formData.email} onChange={handleChange} />
+                  <Mail size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="email" required className={inputClass} placeholder="seu@email.com"
+                    value={form.email} onChange={e => set('email', e.target.value)} />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700 uppercase">Senha</label>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Senha</label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input name="senha" type="password" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Mínimo 6 caracteres" required minLength={6} value={formData.senha} onChange={handleChange} />
+                  <Lock size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="password" required minLength={6} className={inputClass} placeholder="Mínimo 6 caracteres"
+                    value={form.senha} onChange={e => set('senha', e.target.value)} />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700 uppercase">CNPJ</label>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Telefone</label>
                 <div className="relative">
-                  <FileText className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input name="cnpj" type="text" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="00.000.000/0000-00" required value={formData.cnpj} onChange={handleChange} />
+                  <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" required className={inputClass} placeholder="(00) 00000-0000"
+                    value={form.telefone} onChange={e => set('telefone', maskPhone(e.target.value))} />
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-gray-700 uppercase">Telefone</label>
+              <div>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">CNPJ</label>
                 <div className="relative">
-                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input name="telefone" type="text" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="(00) 00000-0000" required value={formData.telefone} onChange={handleChange} />
+                  <FileText size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" required className={inputClass} placeholder="00.000.000/0000-00"
+                    value={form.cnpj} onChange={e => set('cnpj', maskCNPJ(e.target.value))} />
                 </div>
               </div>
 
-              <div className="space-y-1 md:col-span-2">
-                <label className="text-xs font-bold text-gray-700 uppercase">Endereço Completo</label>
+              <div className="sm:col-span-2">
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Endereço de coleta</label>
                 <div className="relative">
-                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-                  <input name="endereco" type="text" className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm" placeholder="Rua, Número, Bairro, Cidade - UF" required value={formData.endereco} onChange={handleChange} />
+                  <MapPin size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input type="text" required className={inputClass} placeholder="Rua, Número, Bairro, Cidade - UF"
+                    value={form.endereco} onChange={e => set('endereco', e.target.value)} />
                 </div>
               </div>
             </div>
 
-            <button type="submit" disabled={loading} className="w-full bg-movendo hover:bg-movendo-dark text-white font-bold py-4 rounded-xl shadow-lg mt-4 disabled:opacity-50 transition-all">
-              {loading ? 'Processando...' : 'Finalizar Cadastro e Ganhar 12 MOVE'}
+            <button type="submit" disabled={loading}
+              className="w-full mt-2 bg-movendo hover:bg-movendo-dark text-white font-black py-4 rounded-2xl shadow-lg shadow-movendo/20 flex items-center justify-center gap-2 transition-all active:scale-[0.98] disabled:opacity-60"
+            >
+              {loading ? 'Criando conta...' : <> Criar conta e ganhar 12 MOVE <ArrowRight size={18} /> </>}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-gray-500 text-sm">
-            Já possui acesso? <Link to="/login" className="text-movendo font-bold">Entrar agora</Link>
+          <p className="mt-6 text-center text-gray-400 text-sm">
+            Já tem conta?{' '}
+            <Link to="/login" className="text-movendo font-black hover:underline">Entrar</Link>
           </p>
         </div>
       </div>
@@ -177,4 +177,3 @@ const Register: React.FC = () => {
 };
 
 export default Register;
-

@@ -197,4 +197,3 @@ const AvailableShipments: React.FC = () => {
 };
 
 export default AvailableShipments;
-

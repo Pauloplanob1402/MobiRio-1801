@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import { Navigation, MapPin, Clock, CheckCircle, RefreshCw, AlertCircle, ChevronRight } from 'lucide-react';
 
@@ -10,7 +10,8 @@ const JANELAS = [
 ];
 
 const DeclareRoute: React.FC = () => {
-  const [destino, setDestino] = useState('');
+  const location = useLocation();
+  const [destino, setDestino] = useState((location.state as any)?.destino || '');
   const [janela, setJanela] = useState('');
   const [observacao, setObservacao] = useState('');
   const [loading, setLoading] = useState(false);
