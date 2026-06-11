@@ -17,9 +17,8 @@ import Profile from './pages/Profile';
 import Layout from './components/Layout';
 
 const App: React.FC = () => {
-  const [session, setSession]   = useState<any>(null);
-  const [loading, setLoading]   = useState(true);
-  const [isNew, setIsNew]       = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
   const ensureProfile = async (user: any) => {
     if (!user) return;
@@ -36,9 +35,7 @@ const App: React.FC = () => {
         });
         await supabase.from('movimentos_credito').insert({
           usuario_id: user.id, quantidade: 12, tipo: 'CREDITO', envio_id: null
-        });
-        // Marcar como novo usuário (para redirecionar ao onboarding)
-        setIsNew(true);
+        }).catch(() => null);
       } else {
         let updates: any = {};
         if (!profile.fornecedor_id) updates.fornecedor_id = user.id;
@@ -46,7 +43,7 @@ const App: React.FC = () => {
           const { data: mv } = await supabase.from('movimentos_credito').select('id').eq('usuario_id', user.id).limit(1);
           if (!mv?.length) {
             updates.creditos = 12;
-            await supabase.from('movimentos_credito').insert({ usuario_id: user.id, quantidade: 12, tipo: 'CREDITO', envio_id: null });
+            await supabase.from('movimentos_credito').insert({ usuario_id: user.id, quantidade: 12, tipo: 'CREDITO', envio_id: null }).catch(() => null);
           }
         }
         if (Object.keys(updates).length) await supabase.from('usuarios').update(updates).eq('id', user.id);
@@ -86,22 +83,21 @@ const App: React.FC = () => {
     </div>
   );
 
-  // Verificar se onboarding já foi visto
-  const onboardingDone = localStorage.getItem('mj_onboarding_done') === '1';
+  // Componente interno para proteger a rota raiz
+  const HomeRoute = () => {
+    const done = localStorage.getItem('mj_onboarding_done') === '1';
+    return done ? <Dashboard /> : <Navigate to="/onboarding" replace />;
+  };
 
   return (
     <HashRouter>
       <Routes>
-        <Route path="/login"      element={!session ? <Login />      : <Navigate to="/" />} />
-        <Route path="/register"   element={!session ? <Register />   : <Navigate to="/" />} />
-        <Route path="/onboarding" element={session  ? <Onboarding /> : <Navigate to="/login" />} />
+        <Route path="/login"      element={!session ? <Login />    : <Navigate to="/" replace />} />
+        <Route path="/register"   element={!session ? <Register /> : <Navigate to="/" replace />} />
+        <Route path="/onboarding" element={session  ? <Onboarding /> : <Navigate to="/login" replace />} />
 
-        <Route element={session ? <Layout /> : <Navigate to="/login" />}>
-          <Route path="/" element={
-            session && (isNew || !onboardingDone)
-              ? <Navigate to="/onboarding" />
-              : <Dashboard />
-          } />
+        <Route element={session ? <Layout /> : <Navigate to="/login" replace />}>
+          <Route path="/"               element={<HomeRoute />} />
           <Route path="/criar"          element={<CreateShipment />} />
           <Route path="/declarar-rota"  element={<DeclareRoute />} />
           <Route path="/meus-envios"    element={<MyShipments />} />
@@ -113,7 +109,7 @@ const App: React.FC = () => {
           <Route path="/perfil"         element={<Profile />} />
         </Route>
 
-        <Route path="*" element={<Navigate to="/" />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </HashRouter>
   );
