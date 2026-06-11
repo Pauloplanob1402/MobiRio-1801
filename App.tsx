@@ -56,14 +56,20 @@ const App: React.FC = () => {
   useEffect(() => {
     let mounted = true;
     const init = async () => {
+      // Timeout de segurança — se demorar mais de 5s, libera mesmo sem sessão
+      const timeout = setTimeout(() => {
+        if (mounted) setLoading(false);
+      }, 5000);
       try {
         const { data: { session: s } } = await supabase.auth.getSession();
+        clearTimeout(timeout);
         if (mounted) {
           setSession(s);
           setLoading(false);
           if (s) await ensureProfile(s.user);
         }
       } catch {
+        clearTimeout(timeout);
         if (mounted) setLoading(false);
       }
     };
