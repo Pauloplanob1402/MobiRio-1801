@@ -1,18 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
-import { Truck, Mail, Lock, User, FileText, MapPin, Phone, AlertCircle, ArrowRight } from 'lucide-react';
+import { Truck, Mail, Lock, User, MapPin, Phone, AlertCircle, ArrowRight } from 'lucide-react';
 
-const maskCNPJ = (v: string) => v.replace(/\D/g,'').replace(/^(\d{2})(\d)/,'$1.$2').replace(/^(\d{2})\.(\d{3})(\d)/,'$1.$2.$3').replace(/\.(\d{3})(\d)/,'.$1/$2').replace(/(\d{4})(\d)/,'$1-$2').substring(0,18);
 const maskPhone = (v: string) => v.replace(/\D/g,'').replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2').substring(0,15);
 
 const Register: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState<string | null>(null);
-  const [step, setStep]       = useState(1);
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({ nome: '', email: '', senha: '', cnpj: '', endereco: '', telefone: '' });
+  const [form, setForm] = useState({ nome: '', email: '', senha: '', endereco: '', telefone: '' });
 
   const set = (field: string, value: string) => setForm(p => ({ ...p, [field]: value }));
 
@@ -22,19 +20,10 @@ const Register: React.FC = () => {
     try {
       const { data: auth, error: ae } = await supabase.auth.signUp({
         email: form.email, password: form.senha,
-        options: { data: { nome: form.nome } }
+        options: { data: { nome: form.nome, telefone: form.telefone, endereco: form.endereco } }
       });
       if (ae) throw ae;
       if (!auth.user) throw new Error('Erro na autenticação.');
-
-      const { error: pe } = await supabase.from('usuarios').insert({
-        id: auth.user.id,
-        nome: form.nome, nome_fantasia: form.nome,
-        razao_social: form.nome.toUpperCase() + ' LTDA',
-        email: form.email, telefone: form.telefone,
-        cnpj: form.cnpj, endereco: form.endereco,
-      });
-      if (pe) throw pe;
 
       navigate('/');
     } catch (err: any) {
@@ -49,7 +38,6 @@ const Register: React.FC = () => {
   return (
     <div className="min-h-screen bg-white flex font-sans">
 
-      {/* Lado esquerdo */}
       <div className="hidden lg:flex lg:w-[45%] bg-slate-950 flex-col justify-center p-12 relative overflow-hidden">
         <div className="absolute inset-0 opacity-5"
           style={{ backgroundImage: 'radial-gradient(circle at 2px 2px, #EA580C 1px, transparent 0)', backgroundSize: '32px 32px' }}
@@ -79,7 +67,6 @@ const Register: React.FC = () => {
         </div>
       </div>
 
-      {/* Formulário */}
       <div className="flex-1 flex items-center justify-center p-6 sm:p-12 overflow-y-auto">
         <div className="w-full max-w-md">
 
@@ -105,10 +92,10 @@ const Register: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
               <div className="sm:col-span-2">
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Nome / Empresa</label>
+                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Nome</label>
                 <div className="relative">
                   <User size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" required className={inputClass} placeholder="Seu nome ou empresa"
+                  <input type="text" required className={inputClass} placeholder="Seu nome"
                     value={form.nome} onChange={e => set('nome', e.target.value)} />
                 </div>
               </div>
@@ -137,15 +124,6 @@ const Register: React.FC = () => {
                   <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
                   <input type="text" required className={inputClass} placeholder="(00) 00000-0000"
                     value={form.telefone} onChange={e => set('telefone', maskPhone(e.target.value))} />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">CNPJ</label>
-                <div className="relative">
-                  <FileText size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input type="text" required className={inputClass} placeholder="00.000.000/0000-00"
-                    value={form.cnpj} onChange={e => set('cnpj', maskCNPJ(e.target.value))} />
                 </div>
               </div>
 
