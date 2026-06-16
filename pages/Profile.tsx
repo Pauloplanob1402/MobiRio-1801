@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabaseClient';
-import { User, MapPin, Phone, Mail, FileText, Save, RefreshCw, CheckCircle, AlertCircle, Building } from 'lucide-react';
+import { User, MapPin, Phone, Mail, Save, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
 
 const maskPhone = (v: string) =>
   v.replace(/\D/g,'').replace(/^(\d{2})(\d)/,'($1) $2').replace(/(\d{5})(\d)/,'$1-$2').substring(0,15);
@@ -11,7 +11,7 @@ const Profile: React.FC = () => {
   const [saved, setSaved]       = useState(false);
   const [erro, setErro]         = useState<string | null>(null);
   const [form, setForm]         = useState({
-    nome: '', email: '', telefone: '', endereco: '', cnpj: '', nome_fantasia: ''
+    nome: '', email: '', telefone: '', endereco: ''
   });
 
   const set = (f: string, v: string) => setForm(p => ({ ...p, [f]: v }));
@@ -23,16 +23,14 @@ const Profile: React.FC = () => {
       if (!user) return;
       const { data } = await supabase
         .from('usuarios')
-        .select('nome, email, telefone, endereco, cnpj, nome_fantasia')
+        .select('nome, email, telefone, endereco')
         .eq('id', user.id)
         .single();
       if (data) setForm({
-        nome:         data.nome         || '',
-        email:        data.email        || user.email || '',
-        telefone:     data.telefone     || '',
-        endereco:     data.endereco     || '',
-        cnpj:         data.cnpj         || '',
-        nome_fantasia: data.nome_fantasia || '',
+        nome:     data.nome     || '',
+        email:    data.email    || user.email || '',
+        telefone: data.telefone || '',
+        endereco: data.endereco || '',
       });
     } finally {
       setLoading(false);
@@ -52,11 +50,9 @@ const Profile: React.FC = () => {
       const { error } = await supabase
         .from('usuarios')
         .update({
-          nome:          form.nome.trim(),
-          telefone:      form.telefone.trim(),
-          endereco:      form.endereco.trim(),
-          cnpj:          form.cnpj.trim(),
-          nome_fantasia: form.nome_fantasia.trim(),
+          nome:     form.nome.trim(),
+          telefone: form.telefone.trim(),
+          endereco: form.endereco.trim(),
         })
         .eq('id', user.id);
       if (error) throw error;
@@ -112,15 +108,6 @@ const Profile: React.FC = () => {
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Nome fantasia / empresa</label>
-          <div className="relative">
-            <Building size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" className={inputClass} placeholder="Nome da empresa (opcional)"
-              value={form.nome_fantasia} onChange={e => set('nome_fantasia', e.target.value)} />
-          </div>
-        </div>
-
-        <div className="space-y-1.5">
           <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Telefone</label>
           <div className="relative">
             <Phone size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -140,15 +127,6 @@ const Profile: React.FC = () => {
               value={form.endereco} onChange={e => set('endereco', e.target.value)} />
           </div>
           <p className="text-[10px] text-gray-400 ml-1">Este endereço aparece como ponto de coleta nos seus pedidos.</p>
-        </div>
-
-        <div className="space-y-1.5">
-          <label className="text-xs font-black text-gray-400 uppercase tracking-widest">CNPJ</label>
-          <div className="relative">
-            <FileText size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" className={inputClass} placeholder="00.000.000/0000-00"
-              value={form.cnpj} onChange={e => set('cnpj', e.target.value)} />
-          </div>
         </div>
 
         {erro && (
