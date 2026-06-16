@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabaseClient';
 import {
   Package, Truck, CheckCircle2, Clock,
-  ChevronRight, RefreshCw, Navigation, ArrowRight
+  ChevronRight, RefreshCw, Navigation, ArrowRight, AlertCircle
 } from 'lucide-react';
 import RadarAtividade from '../components/RadarAtividade';
 import RotasFrequentes from '../components/RotasFrequentes';
@@ -20,19 +20,37 @@ const Dashboard: React.FC = () => {
   const [nome, setNome]       = useState('');
   const [recent, setRecent]   = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erro, setErro]       = useState<string | null>(null);
+  const safetyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
+    setErro(null);
+
+    // Timeout de segurança: se o Supabase travar (RLS, rede, etc.)
+    // a tela nunca mais fica girando para sempre.
+    if (safetyTimer.current) clearTimeout(safetyTimer.current);
+    safetyTimer.current = setTimeout(() => {
+      setLoading(false);
+      setErro('A conexão demorou demais para responder. Verifique sua internet ou tente novamente.');
+    }, 8000);
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data: perfil } = await supabase
-        .from('usuarios').select('nome').eq('id', user.id).single();
+      if (!user) { setLoading(false); return; }
+
+      const { data: perfil, error: perfilErr } = await supabase
+        .from('usuarios').select('nome').eq('id', user.id).maybeSingle();
+      if (perfilErr) throw perfilErr;
       setNome(perfil?.nome?.split(' ')[0] || '');
-      const { data: envios } = await supabase
+
+      const { data: envios, error: enviosErr } = await supabase
         .from('envios')
         .select('id, descricao, status, created_at, destino_livre')
         .eq('solicitante_id', user.id)
         .order('created_at', { ascending: false });
+      if (enviosErr) throw enviosErr;
+
       const list = envios || [];
       setStats({
         pendentes:  list.filter(e => e.status === 'disponivel').length,
@@ -40,7 +58,11 @@ const Dashboard: React.FC = () => {
         concluidos: list.filter(e => e.status === 'entregue').length,
       });
       setRecent(list.slice(0, 3));
+    } catch (err: any) {
+      console.error('Dashboard fetchData:', err);
+      setErro(err?.message || 'Não foi possível carregar seus dados agora.');
     } finally {
+      if (safetyTimer.current) clearTimeout(safetyTimer.current);
       setLoading(false);
     }
   }, []);
@@ -50,12 +72,31 @@ const Dashboard: React.FC = () => {
     const ch = supabase.channel('dash')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'envios' }, fetchData)
       .subscribe();
-    return () => { supabase.removeChannel(ch); };
+    return () => {
+      if (safetyTimer.current) clearTimeout(safetyTimer.current);
+      supabase.removeChannel(ch);
+    };
   }, [fetchData]);
 
   if (loading) return (
     <div className="flex justify-center py-24">
       <RefreshCw className="animate-spin text-movendo" size={28} />
+    </div>
+  );
+
+  if (erro) return (
+    <div className="flex flex-col items-center justify-center py-24 text-center px-6">
+      <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mb-4">
+        <AlertCircle size={28} />
+      </div>
+      <p className="text-sm font-bold text-gray-700 mb-1">Não foi possível carregar o painel</p>
+      <p className="text-xs text-gray-400 mb-6 max-w-xs">{erro}</p>
+      <button
+        onClick={fetchData}
+        className="px-6 py-3 bg-slate-950 hover:bg-slate-800 text-white font-black text-xs uppercase rounded-2xl transition-all"
+      >
+        Tentar novamente
+      </button>
     </div>
   );
 
